@@ -250,7 +250,7 @@ implied by the PRE being used. I<Debugging> programs written using the
 model provided for by L<Sub::Genius> is certainly going to require some time
 debugging. C<fash> is just one way to do it.
 
-This is a shell wrapper around L<FLAP> that provides nice things, like
+This is a shell wrapper around L<FLAT> that provides nice things, like
 the ability to dump PFAs generated from a PRE in I<graphviz> format. It
 can also dump interesting things like the AST resulting from the parsing
 of the PRE (done so by C<RecDescent::Parser>).
