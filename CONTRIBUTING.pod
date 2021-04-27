@@ -1,0 +1,4 @@
+
+
+The L<README> pretty much covers the scope of this document. And
+it'd be good to keep the focus there. Thanks for your interest@

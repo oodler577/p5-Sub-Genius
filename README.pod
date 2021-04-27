@@ -1,650 +1,104 @@
-=head1 DRAFT
+=head1 THIS IS A TEAM SPORT
 
-This document is more or less the full length source of the POD that is
-in L<Sub::Genius>. As this module gets forged through the fire on CPAN,
-the documentation will also go through several revision. The goal is to
-expand on the subjects presented her in seperate documentation.
+See L<https://github.com/oodler577/p5-Sub-Genius/milestone/1> for a
+specific list of documentation and example needs if you wish to contribute
+immediately (and I<we> hope you do).
 
-=head1 NAME
+All may contribute to this effort. I will help I<save> C<perl>, even if
+this approach is deemed sub-optimal (hmm, might be a good name for a new
+model :-)). In any case, the most important step towards making C<perl>
+perceived as being more relevant is to see how creative we can be with
+it as it stands I<now>. And the more hands on deck, the better.
 
-Sub::Genius - module for facilitating concurrent C<Perl> semantics
-in the uniprocess execution model of C<perl>.
+L<FLAT> was created in 2006 as a homework assignment. It wasn't until
+recently that any practical use for it emerged. Why? People started
+asking hard questions about the nature of Perl (the language) and perl
+(the runtime).
 
-Another way to say this, is that it introduces all the joys and pains of
-multi-threaded, shared memory programming to the uniprocess environment that
-is C<perl>.
+Sub::Genius came about by the following line of questioning:
 
-=head1 THIS MODULE IS I<EXPERIMENTAL>
+1. can we make perl I<truly> C<[qw/threaded asynchronouse parallel
+... etc/]>?
 
-Until further noted, this module subject to extreme fluxuations in
-interfaces and implied approaches. The hardest part about this will be
-managing all the cool and bright ideas stemming from it.
+A: No, nope, nada, nein! x C<$MANY_YEARS>
 
-And try as we might, it is impossible to account for all eventualities
-leading to the outcome of this module or approach. It is the hope of this
-author that this is simply a reference exploration or implemention. Provin
-that such a thing can be accomplished in the C<perl> userland (e.g., not
-C<core>) is part of the goals of this project.
+...  years of repeated questions, drama, and soul searching
 
-As noted by an early reviewer of this work, it might seem beneficial
-to provide support for a C<finite automata engine> for uses such as the
-application presented in this module, but that determination is certainly
-one that should address an actual need. The need, if one exists, may come
-from demonstration modules such as this one.
+2. (recently) if perl can't be made threaded, what can be done to make
+it easier to expose concurrent semantics to perl programs? What does
+embracing the indisputible serial nature of C<perl> give us?
 
-=head2 Offline versus Online Execution
+A: It let us look away from C<perl> and more to C<Perl>; the idea of
+planning the executions in a I<sequentially consistent> way emerged. And
+this is how we are here now.
 
-The current use of this module can be considered C<offline>, meaning
-that a sequentially consistent serialization of the presented concurrent
-semantics is generated I<first>, then it is executed. There may be uses
-where a valid C<next subroutine> is generated during run time - this can
-be called C<online> execution of processes defined by the ordering. Will
-this module support C<online> execution? The answer is, it depends on
-the actual utility this approach proves to give C<Perl> programmers.
+Eventually, we realized that I<Parallel Regular Expressions> (also,
+directly convertible to PetriNets) could provide some step towards improved,
+albeit I<low level> semantics.
 
-=head1 PURPOSE
+L<Sub::Genius> is not the only approach, but hopefull it'll get the
+cognative I<cogs> turning.
 
-The main purpose of this module is to expose a high level C<Perl> interface
-to ensuring sequential consistency among sets of subroutines, which is an
-essential concept when discussing anything related to concurrent semantics
-and correct execution ordering in C<perl>'s inherently I<uniprocess>
-environment.
+=head1 SUMMARY
 
-It leverages well known algorithms for converting Regular Languages expressed
-as a formal (not C<perl>) Regular Expression using the traditional operators,
-with the addition of the C<shuffle> operator:
+L<Sub::Genius> is not itself to be ambitious. It is meant to present a
+light Perl interface that allows for parallel thinking for the sequential
+execution environment that C<perl> presents. There is little interest in
+expanding the expressiveness of parallel semantics that it presents. E.g.,
+there are no plans (nor the need) to look beyond the power of reasoning
+affored by the application Regular Languages.
 
-From [1],
+The following areas are the main targets for future development.
 
-    A shuffle w of u and v can be loosely defined as a word that is obtained
-    by first decomposing u and v into individual pieces, and then combining
-    (by concatenation) the pieces to form w, in a way that the order of the
-    pieces in each of u and v is preserved.
+=head1 DOCUMENTATION AND EXAMPLE NEEDS
 
-This means that it preserves the total ordering required by regular languages
-I<u> and I<v>, but admits the partial ordering - or shuffling - of the languages
-of both. This ultimately means that a valid string resulting from this combination
-is necessarily I<sequentially consistent>. Which, from [2],
+This is the current focus area. Exploring application areas and open
+questions will naturally genertate code examples and documentation
+artifacts.
 
-    ... the result of any execution is the same as if the operations of all the
-    processors were executed in some sequential order, and the operations of
-    each individual processor appear in this sequence in the order specified
-    by its program.
+See L<https://github.com/oodler577/p5-Sub-Genius/milestone/1> for a
+specific list of documentation and example needs.
 
-=head1 SYNOPSIS
+=head1 APPLICATION AREAS
 
-    my $pre = q{( A B    &     C D )       Z};
-    #             \ /          \ /         |
-    #>>>>>>>>>>>  L1  <shuff>  L2   <cat>  L3
+This certainly includes using L<Sub::Genius> for cool things, but this
+focus is meant to make this model facilitate a new wave in creative uses
+and approaches for Perl programs.
 
-    my $sq = Sub::Genius->new(pre => $pre);
+Applying L<Sub::Genius> to as many uses as possible will expose obvious
+or non-obvious needs, not only in terms of supporting runtime semantics;
+but also in terms of tooling, e.g., L<stubby> and L<fash>.
 
-    # sub declaration order has no bearing on anything
-    sub A { print qq{A} }
-    sub B { print qq{B} }
-    sub C { print qq{C} }
-    sub D { print qq{D} }
-    sub Z { print qq{\n}}
-
-    $sq->run_once();
-    print qq{\n};
-
-The following expecity execution of the defined subroutines are all
-valid according to the PRE description above:
-
-    # valid order 1
-      A(); B(); C(); D(); Z();
-    
-    # valid order 2
-      A(); C(); B(); D(); Z();
-    
-    # valid order 3
-      A(); C(); D(); B(); Z();
-    
-    # valid order 4
-      C(); A(); D(); B(); Z();
-    
-    # valid order 5
-      C(); D(); A(); B(); Z();
-
-In the example above, using a PRE to describe the relationship among
-subroutine names (these are just multicharacter C<symbols>); we are
-expressing the following constraints:
+=head1 I<Some> OPEN QUESTIONS
 
 =over 4
 
-=item C<sub A> must run before C<sub B>
-
-=item C<sub C> must run before C<sub D>
-
-=item C<sub Z> is always called last
-
-=back
-
-C<Sub::Genius> uses C<FLAT>'s functionality to generate any of a
-number of valid "strings" or correct symbol orderings that are accepted
-by the Regular Language described by the C<shuffle> two regular languages.
-
-=head2 Meaningful Subroutine Names
-
-C<FLAT> allows single character symbols to be expressed with out any decorations;
-
-    my $pre = q{ s ( A (a b) C & D E F) f };
-
-The I<concatentaion> of single symbols is implied, and spaces between symbols doesn't
-even matter. The following is equivalent to the PRE above,
-
-    my $pre = q{s(A(ab)C&DEF)f};
-
-It's important to note immediately after the above example, that the PRE
-may contain C<symbols> that are made up of more than one character. This
-is done using square brackets (C<[...]>), e.g.:
-
-    my $pre = q{[s]([A]([a][b])[C]&[D][E][F])[f]};
-
-But this is a mess, so we can use longer subroutine names as symbols and
-break it up in a more familar way:
-
-    my $pre = q{
-      [start]
-        (
-          [sub_A]
-          (
-            [sub_a]
-            [sub_b]
-          )
-          [sub_C]
-        &
-          [sub_D]
-          [sub_E]
-          [sub_F]
-        )
-      [fin]
-    };
-
-This is much nicer and starting to look like a more natural expression
-of concurrent semantics.
-
-=head3 Notes
-
-=over 3
-
-=item * All strings in brackets are considered a single C<symbol> that
-is part of the set of all symbols accepted by the Regular Language that
-this PRE describes.
-
-=item * A lot is inevitably going to change with some nuances of how the
-PRE is expressed, and a lot of this has to do with necessary changes that
-will be needed in C<FLAT> to facilitate this sort of application; e.g.,
-below the C<white space> immediately after the C<[> is considered part of
-the symbol defined within C<[..]>. A valid string with therefore be the
-concatenation of all symbols; this will necessarily provide spaces in the
-string. The string, is C<split> (effectively C<trim>'ing each subroutine
-name. The subroutines may then be string C<eval>'d with the guarantee that
-they are going to be run in a correct sequential order. This is known
-because C<->valid_string> returns one of potential many (or infinite)
-valid strings depending on the PRE based description.
-
-=back
-
-=head2 Development Workflows
-
-When first starting out with a Perl program using this approach, it might
-be helpful to be able to generate a stub Perl program using a PRE.
-
-Beyond that, this module makes little attempt to solve the external details
-of managing a code base that might utlize this approach. An indication
-of this module's success will be the outcry for these kind of features,
-or by a few kind souls, contributions of tools or features that do help
-in this area.
-
-For now, it is the purpose of C<Sub::Genius::Util::plan2perl>
-to generate stub Perl code. An interesting future capability would be
-to provide additional annotations inside of the C<[...]>, and generate
-immediately useful Perl programs in much the same way that the Ragel State
-Machine compiler works. But this module is not meant to be anything like
-the RSM; one will see no C<goto> statements anywhere around these parts.
-
-=head1 C<PERL>'s UNIPROCESS MEMORY MODEL AND ITS EXECUTION ENVIRONMENT
-
-While the language C<Perl> is not necessarily constrained by a uniprocess
-execution model, the runtime provided by C<perl> is. This has necessarily
-restricted the expressive semantics that can very easily be extended to
-C<DWIM> in a concurrent execution model. The problem is that C<perl> has
-been organically grown over the years to run as a single process. It is
-not immediately obvious to many, even seasoned Perl programmers, why after
-all of these years does C<perl> not have I<real> threads or admit I<real>
-concurrency and semantics. Accepting the truth of the uniprocess model
-makes it clear and brings to it a lot of freedom. This module is meant to
-facilitate shared memory, multi-process reasoning to C<perl>'s fixed
-uniprocess reality.
-
-In the Formal Language Theory area of Computer Science where the study of
-Regular Languages exists, REs are typically modeled as Finite Automata.
-Many are familiar with this concept, and this is the starting point for
-the memory model established with this approach.
-
-Each named symbol in the PRE represents a state the equivalent FSM. And
-while Finite State Machines have no concept of memory, it is the state
-itself that presents the validity of a string; the C<perl> environment
-and all the capabilities of subroutines may be leveraged to facilitate
-several levels of memory that present some interesting options.
-
-Earlier in this SYNOPSIS, there were some subroutine definitions associated
-with the PRE, C<AB & CD>. And the subroutines were defined as so:
-
-    # sub declaration order has no bearing on anything
-    
-    sub A { print qq{A} }
-    sub B { print qq{B} }
-    sub C { print qq{C} }
-    sub D { print qq{D} }
-
-By leveraging the I<consistent> memory model [3] of the C<perl> uniprocess,
-the actual memory envronment may be safely expanded using any combination
-of C<state> and global variable (i.e., C<my>, C<our>):
-
-    # NOTE: sub declaration order has no bearing on anything
-
-    # Shared, global memory
-    my $GLOBAL_STATE = {};
-    
-    sub A {
-      my $scope = shift;
-      state $private_persist = {}; # persistent "state" memory local
-      my $private_temp    = {}; # temporary memory
-
-      # Note: use of 'return' has not yet been # explored in the context
-      # of this approach return;
-       
-      return $scope;
-    }
-
-    sub B {
-      my $scope = shift;
-      state $private_persist = {}; # persistent "state" memory local
-      my $private_temp    = {}; # temporary memory
-
-      # Note: use of 'return' has not yet been # explored in the context
-      # of this approach return;
-       
-      return $scope;
-    }
-
-    sub C {
-      my $scope = shift;
-      state $private_persist = {}; # persistent "state" memory local
-      my $private_temp    = {}; # temporary memory
-
-      # Note: use of 'return' has not yet been # explored in the context
-      # of this approach return;
-       
-      return $scope;
-    }
-
-    sub D {
-      my $scope = shift;
-      state $private_persist = {}; # persistent "state" memory local
-      my $private_temp    = {}; # temporary memory
-
-      # Note: use of 'return' has not yet been # explored in the context
-      # of this approach return;
-       
-      return $scope;
-    }
-
-The concept of C<GLOBAL> and C<state> scopes available to
-the uniprocess seems to beg some form of C<federated> memory among 2 or
-more distinct C<perl> uniprocesses, but this is not in the scope of the
-purpose of this module. Considering C<fork>, it's an interesting avenue
-to explore in the future.
-
-Indeed this paradigm moves slightly away from passing I<everything> into
-a subroutine via parameter list, and embraces the natural availablitly
-of global variables.  The pendulum must move back eventually, maybe this
-is such the time.
-
-Note: C<run_once> (and by extension, C<run_any>) provides for execution
-time globaly, this can be initialized when called C<run_once>. This is
-covered in detail in the C<METHODS> section.
-
-=head2 Atomics and Barriers
-
-When speaking of concurrent semantics in C<Perl>, the topic of atomic
-primatives often comes up, because in a truly multi-process execution
-environment, they are very important to coordinating the competitive access
-of resources such as files and shared memory. Since this execution model
-necessarily serializes parallel semantics in a C<sequentially consistent>
-way, there is no need for any of these things. Singular lines of execution
-need no coordination because there is no competition for any resource
-(e.g., a file, memory, network port, etc).
-
-=head1 USE CASES
-
-See C<DESCRIPTION> for more indepth treatment of sequentially consistent
-execution and Perl, but the following use cases provide examples of why a
-human Perl programmer would want to use this module. This section might be
-more words than code examples for the time being while it gets worked out.
-
-=head2 Use Case 1 - static code stub generation
-
-The scenario is that a developer wishes to describe on a high level
-partial and total ordering among subroutines. For doing this easily in
-Perl and executing it correctly in perl's uniprocess execution model.
-
-=head2 Use Case 2 - run time sequentialization
-
-This case utlizes a PRE during runtime to generate one or more sequentially
-consistent execution schedules. The developer has whatever degrees of
-freedom a PRE desription offers, augmented with C<perl> support for global
-variables, subroutine specific C<state> variables, and private C<my>
-variables.
-
-=head2 Use Case 3 - low level run time support for concurrent semantics
-
-This has yet to be demostrated in any way (even unmeaningfully). But it
-stands to reason that this approach can be sufficiently developed to be
-the basis - or POC of a basis - to manage concurrent semantics in the
-uniprocess model the perl runtime presents. What this might look like, is
-an implementation of fork/join or async/await/future semantics that silently
-serialize correctly for sequential execution in a single C<perl> process.
-
-=head2 Use Case 4 - general experimentation with effects of serialization
-
-A generalization of the activities necessary to prove this module's
-usefulness for Use Case 3 (above) or other things that necessarily need
-to correctly serialized non-squential actions in a correct way.
-
-=head1 DESCRIPTION
-
-This section has been intentionally left blank given the wall of text
-provided above.
-
-=head1 RUNTIME METHODS
-
-A minimal set of methods is provided, more so to not suggest the right
-way to use this module.
-
-=over 4
-
-=item C<new>
-
-Constructor, requires a single scalar string argument that is a valid
-PRE accepted by L<FLAT>.
-
-    my $pre = q{
-      [start]
-        (
-          [subA] (
-            [subB_a] [subB_b]
-          ) [subC]
-        &
-          [subD] [subE] [subF]
-        )
-      [finish]
-    };
-
-    my $sq = Sub::Genius->new(pre => $pre);
-
-Note: due to the need to explore the advantages of supporting I<infinite>
-languages, i.e., PREs that contain a C<Kleene> star; C<init_plan> will
-C<die> after it compiles the PRE into a min DFA. It checks this using the
-C<FLAT::DFA::is_finite> subroutine, which simply checks for the presence
-of cycles. Once this is understood more clearly, this restriction may be
-lifted. This module is all about correctness, and only finite languages
-are being considered at this time.
-
-The reference, if captured by a scalar, can be wholly reset using the same
-parameters as C<new> but calling the C<plan_nein> methods. It's a minor
-convenience, but one all the same.
-
-=item C<plan_nein>
-
-Using an existing reference instantiation of C<Sub::Genius>, resets
-everything about the instance. It's effectively link calling C<new> on the
-instance without having to recapture it.
-
-=item C<init_plan>
-
-This takes the PRE provided in the C<new> constructure, and runs through
-the conversion process provded by L<FLAT> to an equivalent mininimzed
-DFA. It's this DFA that is then used to generate the (currently) finite
-set of strings, or I<plans> that are acceptible for the algorithm or
-steps being implemented.
-
-    my $pre = q{
-      [start]
-        (
-          [subA] (
-            [subB_a] [subB_b]
-          ) [subC]
-        &
-          [subD] [subE] [subF]
-        )
-      [finish]
-    };
-    my $sq = Sub::Genius->new(pre => $pre);
-    $sq->init_plan;
-
-=item C<run_once>
-
-Returns C<scope> as affected by the assorted subroutines.
-
-Accepts two parameters, both are optional:
-
-=over 4
-
-=item ns => q{My::Subsequentializer::Oblivious::Funcs}
-
-Defaults to C<main::>, allows one to specify a namespace that points to a library
-of subroutines that are specially crafted to run in a I<sequentialized> environment.
-Usually, this points to some sort of willful obliviousness, but might prove to be
-useful nonetheless.
-
-=item scope => {}
-
-Allows one to initiate the execution scoped memory, and may be used to manage
-a data flow pipeline. Useful and consistent only in the context of a single
-plan execution. If not provided, C<scope> is initialized as an empty anonymous
-hash reference:
-
-    my $final_scope = $sq->run_once(
-                           scope   => {},
-                           verbose => undef,
-                      );
-
-=item verbose => 1|0
-
-Default is falsy, or I<off>. When enabled, outputs arguably useless diagnostic
-information.
-
-
-=back
-
-Runs the execution plan once, returns whatever the last subroutine executed
-returns:
-
-    my $pre = join(q{&},(a..z));
-    my $sq = Sub::Genius->new(pre => $pre);
-    $plan = $sq->init_plan;
-    my $final_scope = $sq->run_once;
-
-=item C<next>
-
-L<FLAT> provides some utility methods to pump FAs for valid strings;
-effectively, its the enumeration of paths that exist from an initial
-state to a final state. There is nothing magical here. The underlying
-method used to do this actually creates an interator.
-
-When C<next> is called the first time, an interator is created, and the
-first string is returned. There is currently no way to specify which
-string (or C<plan>) is returned first, which is why it is important that
-the concurrent semantics declared in the PRE are done in such a way that
-any valid string presented is considered to be sequentially consistent
-with the memory model used in the implementation of the subroutines. Perl
-provides the access to these memories by use of their lexical variable
-scoping (C<my>) and the convenient way it allows one to make a
-subroutine maintain persistent memory (i.e., make it a coroutine) using
-the C<state> keyword. See more about C<PERL's UNIPROCESS MEMORY MODEL
-AND ITS EXECUTION ENVIRONMENT> in the section above of the same name.
-
-An example of iterating over all valid strings in a loop follows:
-
-    while (my $plan = $sq->next_plan()) {
-      print qq{Plan: $plan\n};
-      $sq->run_once;
-    }
-
-Note, in the above example, the concept of I<pipelining> is violated since the
-loop is running each plan ( with no guaranteed ordering ) in turn. C<$scope> is
-only meaningful within each execution context. Dealing with multiple returned
-final scopes is not part of this module, but can be captured during each iteration
-for future processessing:
-
-    my @all_final_scopes = ();
-    while (my $plan = $sq->next_plan()) {
-      print qq{Plan: $plan\n};
-      my $final_scope = $sq->run_once;
-      push @all_final_scopes, { $plan => $final_scope };
-    }
-    # now do something with all the final scopes collected
-    # by @all_final_scopes
-
-At this time C<Sub::Genius> only permits I<finite> languages, therefore
-there is always a finite list of accepted strings. The list may be long, but
-it's finite.
-
-As an example, the following admits a large number of orderings in a realtively
-compact DFA, in fact there are 26! (factorial) such valid orderings:
-
-    my $pre = join(q{&},(a..z));
-    my $final_scope = Sub::Genius->new(pre => $pre)->run_once;
-
-Thus, the following will take long time to complete; but it will complete:
-
-    my $ans; # global to all subroutines executed
-    while ($my $plan = $sq->next_plan()) {
-      $sq->run_once;
-    }
-    print qq{ans: $ans\n};
-
-Done right, the output after 26! iterations may very well be:
-
-    ans: 42
-
-A formulation of 26 subroutines operating over shared memory in which all
-cooperative execution of all 26! orderings reduces to C<42> is left as an
-excercise for the reader.
-
-=item C<run_any>
-
-For convenience, this wraps up the steps of C<plan>, C<init_plan>, C<next>,
-and C<run_once>. It presents a simple one line interfaces:
-
-    my $pre = q{
-      [start]
-        (
-          [subA] (
-            [subB_a] [subB_b]
-          ) [subC]
-        &
-          [subD] [subE] [subF]
-        )
-      [finish]
-    };
-    Sub::Genius->new(pre => $pre)->run_any();
-
-=back
-
-=head1 STATIC CODE UTILITY METHODS
-
-L<Sub::Genius> supplies a very basic and dumb way to generate
-stub code based on a provided PRE. It's only meant to use once, and is
-not recommended for managing code dynamically or as part of a development
-workflow.
-
-Managing generated code is a pain and a very fragile process. Perl
-modules such as L<CodeGen::Protection> address this issue directly. To
-remain minimalistic in the offered functionality, there is a single
-helper utility that simply generates a set of stub methods for each
-C<symbol> present in the alphabet implied by the PRE. Also generated is
-a global shared memory hash; and each subroutine has in it a C<state>
- C<my> hash to serve as persistent memory between subsequent calls
-and as temporary memory available each time a subroutine is executed.
-
-=head1 OPEN QUESTIONS
-
-Usually the term, C<open questions>, is used to imply addition research
-is needed in the academic sense. Fortunately, this module encapsulates
-two extremely well researched topics: Regular Languages, Finite Automata,
-and uniprocess execution environments (particularly in regards to operating
-systems research).
-
-This section is focused questions as they relate to the search for proper
-idiomatic uses of this module to explore concurrent programming semantics
-that may be expressed in C<Perl> (the language) and the uniprocess execution
-and memory model that C<perl> exposes in such a robust and fantic way.
-
-Some open questions are pressing and required for an initial release. Others
-are more future oriented.
-
-=over 4
-
-=item What sort of C<run loop> methods would be useful
-
-=item It is pretty clear how concatenation, union, and shuffle can be
-leveraged for declaring concurrent semantics dicussed above. How can
-support for the kleene star and negation be leveraged to bring value? See
-L<FLAT::Regex::WithExtraOps> for more information on how FLAT supports
-these Regular Language Expression operations
-
-=item Given speculation in point above, it
-might lead to some interesting options to look at
-L<https://metacpan.org/source/ESTRABD/FLAT-1.0.2/lib%2FFLAT%2FDFA.pm#L394>,
-which is the iterator inplementing the "deep_dft" traversal used to
-"pump" cycles necessarily created by kleene stars, but to a limit. It
-may lead to an approach that executes subs as it's doing the traversal,
-offering options to choose among valid 'run time' decisions based on the
-current DFT state of the traversal being walked for a valid string
-
-=item Are there any other operations that are L<closed> under Regular
-Languages that could be introduced to FLAT that would provide additional
-value.
-
-=item What ways of getting a I<valid> sequential string would be most
-helpful>? Currently, C<string> returns any valid string in a non-reprucible
-way. This means that getting the same string between subsequent calls is
-not support. Specifying specific characteristcs of the the sequentially
-consistent string form is also not supported (e.g., C<longest>, etc).
-
-=item What utlitiy methods would provide the most value to anyone statically
-generating programs utilizing this approach? How can regeneration of code
-be used best in a manageable development workflow.
-
-=back
-
-=head1 SEE ALSO
-
-L<Pipeworks>, L<Sub::Pipeline>, L<Process::Pipeline>, L<FLAT>,
-L<Graph::PetriNet>
-
-
-=head1 COPYRIGHT AND LICENSE
-
-Same terms as perl itself.
-
-=head1 AUTHOR
-
-OODLER 577 E<lt>oodler@cpan.org<gt>
-
-=head1 REFERENCES
-
-=over 4
-
-=item * 1. L<https://www.planetmath.org/shuffleoflanguages>
-
-=item * 2. Leslie Lamport, "How to Make a Multiprocessor Computer That Correctly Executes Multiprocess Programs", IEEE Trans. Comput. C-28,9 (Sept. 1979), 690-691.
-
-=item * 3. L<https://www.hpl.hp.com/techreports/Compaq-DEC/WRL-95-7.pdf>
+=item * Is there a better way to express a I<current> plan for C<perl>
+programs in a more I<perlish> or more natural way? Can a C<plan> be
+generated I<at> run time, rather than being done so up front?
+
+=item * Creating examples and documentation applying Sub::Genius to implement
+different memory models, which is now a little more easily possible. (e.g.,
+SMP, futures, etc).
+
+=item * How can Perl libraries (modules) be composed to provide even more
+unobtrusive access to these memory models and concurrent programming
+paradigms?
+
+=item * How can the uniprocess C<perl> runtime be used even more effectively
+and creatively?  E.g., subroutines can be given persistent state that
+remains between calls using the C<state> variable. This presents a
+programming model that naturally admits the use of co-routines.
+
+=item * What does it look like when one introduces actual C<perl> C<fork>ing
+to a program that is expressed in a L<Sub::Genius> facilitated program?
+
+=item * Are there fundamental capabilities the C<perl> runtime can provide
+to make the model presented by <Sub::Genius>? For example, TEODESIAN
+@cpan has suggested a very interesting idea that C<perl> should support a
+I<finite automata> engine, which would serve exactly the purpose L<FLAT>
+and provides to Sub::Genius.
+
+=item * What other questions are there?
 
 =back
