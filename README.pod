@@ -91,13 +91,13 @@ remains between calls using the C<state> variable. This presents a
 programming model that naturally admits the use of co-routines.
 
 =item * What does it look like when one introduces actual C<perl> C<fork>ing
-to a program that is expressed in a L<Sub::Genius> facilitated program?
+to a program that is expressed in using L<Sub::Genius> facilities?
 
 =item * Are there fundamental capabilities the C<perl> runtime can provide
-to make the model presented by <Sub::Genius>? For example, TEODESIAN
+to make the model presented by L<Sub::Genius>? For example, TEODESIAN
 @cpan has suggested a very interesting idea that C<perl> should support a
 I<finite automata> engine, which would serve exactly the purpose L<FLAT>
-and provides to Sub::Genius.
+provides for Sub::Genius.
 
 =item * What other questions are there?
 
