@@ -6,7 +6,7 @@ use feature 'state';
 use FLAT::PFA;
 use FLAT::Regex::WithExtraOps;
 
-our $VERSION = q{0.01};
+our $VERSION = q{0.02};
 
 # constructor
 sub new {
@@ -146,6 +146,12 @@ coroutines> [1], let's do it correctly. C<:)>
 Until further noted, this module subject to extreme fluxuations in
 interfaces and implied approaches. The hardest part about this will be
 managing all the cool and bright ideas stemming from it.
+
+=head2 STATIC CODE STUB GENERATION TOOL
+
+Eventually this module will install a tool called C<stubby> into your
+local C<$PATH>. For the time being it is located in the C<./bin> directory
+of the distribution and on Github.
 
 =head1 SYNOPSIS
 
@@ -490,15 +496,13 @@ Same terms as perl itself.
 
 =head1 AUTHOR
 
-OODLER 577 E<lt>oodler@cpan.org<gt>
+OODLER 577 E<lt>oodler@cpan.orgE<gt>
 
 =head1 ACKNOWLEDGEMENTS
 
-L<TEODESIAN> is acknowledged for his support and interest in this project, in
-particular his work lifting the veil off of what passes for I<concurrency> these
-days; namely, I<most of the "Async" modules out there are actually fakin' the funk
-with coroutines.>. See L<https://troglodyne.net/video/1615853053> for a fun, fresh,
-and informative video on the subject.
-
-
-
+L<TEODESIAN> is acknowledged for his support and interest in
+this project, in particular his work lifting the veil off of what
+passes for I<concurrency> these days; namely, I<most of the "Async"
+modules out there are actually fakin' the funk with coroutines.>. See
+L<https://troglodyne.net/video/1615853053> for a fun, fresh, and informative
+video on the subject.

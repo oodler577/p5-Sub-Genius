@@ -79,7 +79,7 @@ __END__
 
 =head1 NAME
 
-nameMe - and tell me my purpose so I don't realize I am a tool
+nameMe -
 
 =head1 SYNAPSIS
 
@@ -262,5 +262,5 @@ Same terms as perl itself.
 
 =head1 AUTHOR
 
-OODLER 577 E<lt>oodler@cpan.org<gt>
+OODLER 577 E<lt>oodler@cpan.orgE<gt>
 
