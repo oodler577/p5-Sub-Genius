@@ -10,7 +10,7 @@ fash provides an easier commandline interface to one liners available via FLAT::
 
 Sending input interactively: 
 
-    % flat <action> [parameter1 parameter2 ... parameterN]
+    % fash <action> [parameter1 parameter2 ... parameterN]
 
 Sending input via C<< <STDIN> >>:
 
