@@ -6,7 +6,7 @@ use feature 'state';
 use FLAT::PFA;
 use FLAT::Regex::WithExtraOps;
 
-our $VERSION = q{0.03};
+our $VERSION = q{0.04};
 
 # constructor
 sub new {
@@ -56,9 +56,9 @@ sub init_plan {
     die qq{Need to call 'new' to initialize\n} if not $self->{_regex};
 
     # warn if DFA is not acyclic (infinite strings accepted)
-    if ( $self->min_dfa->is_infinite and not $self->{'infinite-ok'} ) {
+    if ( $self->min_dfa->is_infinite and not $self->{'infinite'} ) {
         warn qq{(warn) Infinite language detected. To avoid, do not use Kleene Star (*).\n};
-        warn qq{ Pass 'infinite-ok'=>1 to constructor to disable this warning\.\n};
+        warn qq{ Pass 'infinite => 1' to constructor to disable this warning\.\n};
     }
 
     # returns $self, for chaining in __PACKAGE__->run_any
@@ -131,7 +131,7 @@ __END__
 
 =head1 NAME
 
-Sub::Genius - module for managing concurrent C<Perl> semantics in the
+Sub::Genius - manage concurrent C<Perl> semantics in the
 uniprocess execution model of C<perl>.
 
 Another way to say this, is that it introduces all the joys and pains of
@@ -147,26 +147,114 @@ Until further noted, this module subject to extreme fluxuations in
 interfaces and implied approaches. The hardest part about this will be
 managing all the cool and bright ideas stemming from it.
 
-=head2 STATIC CODE STUB GENERATION TOOL
+=head2 The Expressive I<Power> of Regular Languages
 
-Eventually this module will install a tool called C<stubby> into your
-local C<$PATH>. For the time being it is located in the C<./bin> directory
-of the distribution and on Github.
+This module is firmly grounded on the power afforded in expressiveness by
+using Regular Language properties to express concurrency. Expansion into
+more I<powerful> languages such as I<context sensitive> or I<context free>
+is not part of the goal. For anyone interested in this topic, it's a relevant to
+consider that since symbols in the PRE are mapped to subroutine names; it
+does add computational power when a subroutine is given a C<state> variable,
+effectively turning them into I<coroutines>. Memory is power; it doesn't
+provide unlimited power, but it is the thing that makes Context Sensitive
+Languages more power than Regular Languages, etc.
+
+Given the paragraph above, C<Sub::Genius> may also be described as a way to
+explore more or more valid execution orderings which have been derived from
+a graph that contains all valid orderings. This graph (the DFA) described
+precisely by the PRE.
+
+=head2 Regular Language Operators
+
+The following operator are available via C<FLAT>:
+
+=over 4
+
+=item I<concatentation> - there is no character for this, it is implied when
+two symbols are directly next to one another. E.g., C<a b c d>, which can also
+be expressed as C<abcd> or even C<[a][b][c][d]>.  Examples,
+    
+=item
+
+    my $pre = q{    a        b        c    };            # single char symbol
+    my $pre = q{[symbol1][symbol2][symbol3]};            # multi-char symbol
+
+=item C<|> - I<union> - represented as a pipe, C<|>. If it looks like an C<or>, that
+is because it is. E.g., C<a|b|c|d> means a valid string is, C<'a' or 'b' or 'c'
+or 'd'>.
+
+=item
+
+    my $pre = q{    a     |     b     |   c      };      # single char symbol
+    my $pre = q{[symbol1] | [symbol2] | [symbol3]};      # multi-car symbol
+
+=item C<&> - I<shuffle> - represented by the ampersand, C<&>. It is the addition of this
+operator, which is I<closed> under Regular Languages, that allows concurrency to
+be expressed. It is also generates a I<Parallel Finite Automata>, which is an
+I<e-NFA> with an additional special transition, represented by L<lambda>. It's
+still closed under RLs, it's just a way to express a constraint on the NFA that
+preserves the total and partial ordering among shuffled languages. It is this
+property that leads to guaranteeing I<sequential consistency>.
+
+=item
+
+    my $pre = q{    a     &     b     &   c      };      # single char symbol
+    my $pre = q{[symbol1] & [symbol2] & [symbol3]};      # multi-car symbol
+
+=item C<*> - I<Kleene Star> - L<Sub::Genius> currently will die if one attempts to use
+this, but it is supported just fine by C<FLAT>. It's not supported in this module
+because it admits an I<infinite> language. That's not to say it's not useful for
+towards the aims of this module; but it's not currently understood by the merely
+I<sub-genius> module author(s) how to leverage this operator.
+
+=item
+
+    my $pre = q{    a     &     b*     &   c      };      # single char symbol
+    my $pre = q{[symbol1] & [symbol2]* & [symbol3]};      # multi-car symbol
+
+=item Note: the above PRE is not supported in L<Sub::Genius>, but may be in the future.
+One may tell C<Sub::Genius> to not C<die> when an infinite language is detected
+by passing the C<infinite> flag in the constructor; but currently the behavior
+exhibited by this module is considered I<undefined>:
+
+=item
+
+    my $pre = q{    a     &     b*     &   c      };      # single char symbol
+    my $sq = Sub::Genius->new(pre => $pre, infinite => 1);
+
+=head2 Precedence
+
+C<(>, C<)>
+
+Parenthesis are supported as a way to group constituent I<languages>, provide nexting,
+and exlicitly express precendence. Many examples in this document use parenthesis
+liberally for clarity.
+
+    my $pre = q{ s ( A (a b) C & ( D E F ) ) f };
+
+=back
+
+=head2 Static Code Generation Tool
+
+This module installs a tool called L<stubby> into your local C<$PATH>. For
+the time being it is located in the C<./bin> directory of the distribution
+and on Github. It will help anyone interested in getting an idea of what
+programming using this model is like.
 
 =head1 SYNOPSIS
 
     my $pre = q{( A B    &     C D )       Z};
     #             \ /          \ /         |
-    #>>>>>>>>>>>  L1  <shuff>  L2   <cat>  L3
+    #>>>>>>>>>>>  L1  <shuff>   L2  <cat>  L3
 
     my $sq = Sub::Genius->new(pre => $pre);
 
     # sub declaration order has no bearing on anything
-    sub A { print qq{A} }
-    sub B { print qq{B} }
-    sub C { print qq{C} }
-    sub D { print qq{D} }
-    sub Z { print qq{\n}}
+    sub A { print qq{A}  }
+    sub B { print qq{B}  }
+    sub C { print qq{C}  }
+    sub D { print qq{D}  }
+    sub Z { print qq{\n} }
 
     $sq->run_once();
     print qq{\n};
@@ -174,19 +262,19 @@ of the distribution and on Github.
 The following expecity execution of the defined subroutines are all
 valid according to the PRE description above:
 
-    # valid order 1
+    # valid execution order 1
       A(); B(); C(); D(); Z();
     
-    # valid order 2
+    # valid execution order 2
       A(); C(); B(); D(); Z();
     
-    # valid order 3
+    # valid execution order 3
       A(); C(); D(); B(); Z();
     
-    # valid order 4
+    # valid execution order 4
       C(); A(); D(); B(); Z();
     
-    # valid order 5
+    # valid execution order 5
       C(); D(); A(); B(); Z();
 
 In the example above, using a PRE to describe the relationship among
@@ -203,29 +291,57 @@ expressing the following constraints:
 
 =back
 
-C<Sub::Genius> uses C<FLAT>'s functionality to generate any of a
-number of valid "strings" or correct symbol orderings that are accepted
-by the Regular Language described by the C<shuffle> two regular languages.
+=head2 Use of Long Known Regular Language Properties
+
+C<Sub::Genius> uses C<FLAT>'s ability to tranform a Regular Expression,
+of the Regular Language variety (not a C<Perl> regex!) into a Deterministic
+Finite Automata (DFA); once this has been achieved, the DFA is minimized and
+depth-first enumeration of the valid "strings" accepted by the original
+Regular Expression may be considered I<sequentially consistent>. The
+I<parallel> semantics of the Regular Expression are achieved by the
+addition of the C<shuffle> of two or more Regular Languages. The result is
+also a Regular Language.
+
+From [1],
+
+    A shuffle w of u and v can be loosely defined as a word that is obtained
+    by first decomposing u and v into individual pieces, and then combining
+    (by concatenation) the pieces to form w, in a way that the order of
+    the pieces in each of u and v is preserved.
+
+This means that it preserves the total ordering required by regular
+languages I<u> and I<v>, but admits the partial ordering - or shuffling - of
+the languages of both. This ultimately means that a valid string resulting
+from this combination is necessarily I<sequentially consistent>. Which,
+from [2],
+
+    ... the result of any execution is the same as if the operations of
+    all the processors were executed in some sequential order, and the
+    operations of each individual processor appear in this sequence in
+    the order specified by its program.
+
+And it is the C<shuffle> operator that provides the I<concurrent> semantics to
+be expressed rather easily.
 
 =head2 Meaningful Subroutine Names
 
 C<FLAT> allows single character symbols to be expressed with out any decorations;
 
-    my $pre = q{ s ( A (a b) C & D E F) f };
+    my $pre = q{ s ( A (a b) C & ( D E F ) ) f };
 
 The I<concatentaion> of single symbols is implied, and spaces between symbols doesn't
 even matter. The following is equivalent to the PRE above,
 
-    my $pre = q{s(A(ab)C&DEF)f};
+    my $pre = q{s(A(ab)C&(DEF))f};
 
 It's important to note immediately after the above example, that the PRE
 may contain C<symbols> that are made up of more than one character. This
 is done using square brackets (C<[...]>), e.g.:
 
-    my $pre = q{[s]([A]([a][b])[C]&[D][E][F])[f]};
+    my $pre = q{[s]([A]([a][b])[C]&([D][E][F]))[f]};
 
 But this is a mess, so we can use longer subroutine names as symbols and
-break it up in a more familar way:
+break it up in a more readable way:
 
     my $pre = q{
       [start]
@@ -237,29 +353,36 @@ break it up in a more familar way:
           )
           [sub_C]
         &
+         (
           [sub_D]
           [sub_E]
           [sub_F]
+         )
         )
       [fin]
     };
 
 This is much nicer and starting to look like a more natural expression
-of concurrent semantics.
+of concurrent semantics, and allows the expression of subroutines as
+meaningful symbols.
 
 =head1 C<PERL>'s UNIPROCESS MEMORY MODEL AND ITS EXECUTION ENVIRONMENT
 
 While the language C<Perl> is not necessarily constrained by a uniprocess
 execution model, the runtime provided by C<perl> is. This has necessarily
-restricted the expressive semantics that can very easily be extended to
-C<DWIM> in a concurrent execution model. The problem is that C<perl> has
-been organically grown over the years to run as a single process. It is
-not immediately obvious to many, even seasoned Perl programmers, why after
-all of these years does C<perl> not have I<real> threads or admit I<real>
-concurrency and semantics. Accepting the truth of the uniprocess model
-makes it clear and brings to it a lot of freedom. This module is meant to
-facilitate shared memory, multi-process reasoning to C<perl>'s fixed
-uniprocess reality.
+restricted the expressive semantics that can very easily be extended
+to C<DWIM> in a concurrent execution model. The problem is that C<perl>
+has been organically grown over the years to run as a single process. It
+is not immediately obvious to many, even seasoned Perl programmers, why
+after all of these years does C<perl> not have I<real> threads or admit
+I<real> concurrency and semantics. Accepting the truth of the uniprocess
+model makes it clear and brings to it a lot of freedom. This module is
+meant to facilitate shared memory, multi-process reasoning to C<perl>'s
+fixed uniprocess reality.
+
+The uniprocess model ease of reasoning, particularly in the case of
+shared memory programming semantics and consistency thereof. See [3]
+for more background on this.
 
 =head2 Atomics and Barriers
 
@@ -327,9 +450,11 @@ steps being implemented.
     my $pre = q{
       [start]
         (
-          [subA] (
+          [subA]
+          (
             [subB_a] [subB_b]
-          ) [subC]
+          )
+          [subC]
         &
           [subD] [subE] [subF]
         )
@@ -346,7 +471,7 @@ Accepts two parameters, both are optional:
 
 =over 4
 
-=item ns => q{My::Subsequentializer::Oblivious::Funcs}
+=item ns => q{My::CS::Oblivious::Funcs}
 
 Defaults to C<main::>, allows one to specify a namespace that points to a library
 of subroutines that are specially crafted to run in a I<sequentialized> environment.
@@ -360,16 +485,12 @@ a data flow pipeline. Useful and consistent only in the context of a single
 plan execution. If not provided, C<scope> is initialized as an empty anonymous
 hash reference:
 
-    my $final_scope = $sq->run_once(
-                           scope   => {},
-                           verbose => undef,
-                      );
+    my $final_scope = $sq->run_once( scope   => {}, verbose => undef, );
 
 =item verbose => 1|0
 
 Default is falsy, or I<off>. When enabled, outputs arguably useless diagnostic
 information.
-
 
 =back
 
@@ -377,8 +498,8 @@ Runs the execution plan once, returns whatever the last subroutine executed
 returns:
 
     my $pre = join(q{&},(a..z));
-    my $sq = Sub::Genius->new(pre => $pre);
-    $plan = $sq->init_plan;
+    my $sq  = Sub::Genius->new(pre => $pre);
+    $plan   = $sq->init_plan;
     my $final_scope = $sq->run_once;
 
 =item C<next>
@@ -407,11 +528,11 @@ An example of iterating over all valid strings in a loop follows:
       $sq->run_once;
     }
 
-Note, in the above example, the concept of I<pipelining> is violated since the
-loop is running each plan ( with no guaranteed ordering ) in turn. C<$scope> is
-only meaningful within each execution context. Dealing with multiple returned
-final scopes is not part of this module, but can be captured during each iteration
-for future processessing:
+Note, in the above example, the concept of I<pipelining> is violated
+since the loop is running each plan ( with no guaranteed ordering ) in
+turn. C<$scope> is only meaningful within each execution context. Dealing
+with multiple returned final scopes is not part of this module, but can
+be captured during each iteration for future processessing:
 
     my @all_final_scopes = ();
     while (my $plan = $sq->next_plan()) {
@@ -456,9 +577,11 @@ and C<run_once>. It presents a simple one line interfaces:
     my $pre = q{
       [start]
         (
-          [subA] (
+          [subA]
+          (
             [subB_a] [subB_b]
-          ) [subC]
+          )
+          [subC]
         &
           [subD] [subE] [subF]
         )
@@ -473,22 +596,45 @@ and C<run_once>. It presents a simple one line interfaces:
 The C<stubby> utility is provided for this purpose and is not part of the
 main module.
 
+=head1 LIMITATIONS
+
+L<FLAT> is very useful for fairly complex semantics, but the number of
+FA states grows extremely large as it moves from the non-deterministic
+realm to to the deterministic. 
+
+What that means in most cases, is that the more non-deterministic the PRE
+(e.g., the more C<shuffles> or C<&>'s), the longer it will take for the final
+DFA to be created. It would not be hard to overwhelm a system's memory
+with a PRE like the one suggested above,
+
+    my $pre = join(q{&},(a..z));
+
+This suggests all 26 letter combinations of all of the lower case letters of
+the alphabet (26! such combinations, as noted above) must be accounted for
+in the final minimized DFA, which is really just a large graph.
+
+The algorithms inplemented in L<FLAT> to convert from a PRE to a PFA (equivalent
+to a PetriNet) to a NFA to a DFA, and finally to a minimized DFA are the basic'
+ones discussed in any basic CS text book on automata, e.g., [5].
+
 =head1 SEE ALSO
 
-L<Pipeworks>, L<Sub::Pipeline>, L<Process::Pipeline>, L<FLAT>,
-L<Graph::PetriNet>
+L<Pipeworks>, L<Sub::Pipeline>, L<Process::Pipeline>, L<FLAT>, L<Graph::PetriNet>
 
-=head2 GOOD READINGS
+=head2 Good Reads
 
 =over 4
 
 =item * 1. L<https://www.planetmath.org/shuffleoflanguages>
 
-=item * 2. Leslie Lamport, "How to Make a Multiprocessor Computer That Correctly Executes Multiprocess Programs", IEEE Trans. Comput. C-28,9 (Sept. 1979), 690-691.
+=item * 2. Leslie Lamport, "How to Make a Multiprocessor Computer That Correctly
+Executes Multiprocess Programs", IEEE Trans. Comput. C-28,9 (Sept. 1979), 690-691.
 
 =item * 3. L<https://www.hpl.hp.com/techreports/Compaq-DEC/WRL-95-7.pdf>
 
 =item * 4. L<https://troglodyne.net/video/1615853053>
+
+=item * 5. Introduction to Automata Theory, Languages, and Computation; Hopcroft, Motwani, Ullman.
 
 =back
 
@@ -502,7 +648,7 @@ OODLER 577 E<lt>oodler@cpan.orgE<gt>
 
 =head1 ACKNOWLEDGEMENTS
 
-L<TEODESIAN> is acknowledged for his support and interest in
+I<TEODESIAN> (@cpan) is acknowledged for his support and interest in
 this project, in particular his work lifting the veil off of what
 passes for I<concurrency> these days; namely, I<most of the "Async"
 modules out there are actually fakin' the funk with coroutines.>. See
