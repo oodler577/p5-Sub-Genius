@@ -1,0 +1,15 @@
+name: Test
+on:
+  push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install FLAT
+      run: |
+        cpanm install FLAT Test::More Test::Exception
+    - name: Test
+      run: |
+        cpanm -n --with-recommends --installdeps .
+        prove -lr ./t
