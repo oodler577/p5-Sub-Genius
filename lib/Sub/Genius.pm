@@ -6,7 +6,7 @@ use feature 'state';
 use FLAT::PFA;
 use FLAT::Regex::WithExtraOps;
 
-our $VERSION = q{0.04};
+our $VERSION = q{0.05};
 
 # constructor
 sub new {
@@ -15,16 +15,6 @@ sub new {
     die qq{'pre' parameter required!\n} if not defined $self{pre};
     $self{_regex} = FLAT::Regex::WithExtraOps->new( $self{pre} );
     my $self = bless \%self, $pkg;
-    return $self;
-}
-
-# accepts the same parameters as a constructor, used to re-initialize
-# the current reference
-sub plan_nein {
-    my $pkg  = shift;
-    my $self = __PACKAGE__->new(@_);
-
-    # also returns $self for convenience
     return $self;
 }
 
@@ -47,16 +37,18 @@ sub plan {
     return $self->{plan};
 }
 
-# Converts PRE -> PFA -> NFA -> DFA -> minized DFA:
+# Converts PRE -> PFA -> NFA -> DFA:
 # NOTE: plan is not generated here, much call ->next()
+#  use param, 'mindfa=>1' to use minimal DFA 
+#  can pass param to underlying ->dfa also, like 'reset => 1'
 sub init_plan {
-    my ($self) = @_;
+    my ($self, %opts) = @_;
 
     # requires PRE (duh)
     die qq{Need to call 'new' to initialize\n} if not $self->{_regex};
 
     # warn if DFA is not acyclic (infinite strings accepted)
-    if ( $self->min_dfa->is_infinite and not $self->{'infinite'} ) {
+    if ( $self->dfa(%opts)->is_infinite and not $self->{'infinite'} ) {
         warn qq{(warn) Infinite language detected. To avoid, do not use Kleene Star (*).\n};
         warn qq{ Pass 'infinite => 1' to constructor to disable this warning\.\n};
     }
@@ -66,15 +58,18 @@ sub init_plan {
 }
 
 # to force a reset, pass in, C<reset => 1>.; this makes a lot of cool things
-sub min_dfa {
+sub dfa {
     my ( $self, %opts ) = @_;
-    if ( ( not defined $self->{min_DFA} and q{FLAT::DFA::Minimal} ne ref $self->{min_DFA} ) or $opts{reset} ) {
-
-        # the following line is FLAT: converting PRE to PFA (a form of NFA),
-        # then -> NFA->DFA-minDFA + 'trim sink states" resulting from minimization algorithm
-        $self->{min_DFA} = $self->{_regex}->as_pfa->as_nfa->as_dfa->as_min_dfa->trim_sinks;
+    if ( not defined $self->{DFA} or defined $opts{reset} ) {
+        $self->{DFA} = $self->{_regex}->as_pfa->as_nfa->as_dfa;
+        if (not defined $opts{'mindfa'}) {
+          $self->{DFA} = $self->{_regex}->as_pfa->as_nfa->as_dfa->trim_sinks;
+        }
+        else {
+          $self->{DFA} = $self->{_regex}->as_pfa->as_nfa->as_dfa->as_min_dfa->trim_sinks;
+        }
     }
-    return $self->{min_DFA};
+    return $self->{DFA};
 }
 
 # Acyclic String Iterator
@@ -82,12 +77,22 @@ sub min_dfa {
 sub next {
     my ( $self, %opts ) = @_;
     if ( not defined $self->{_acyclical_iterator} or $opts{reset} ) {
-        $self->{_acyclical_iterator} = $self->{min_DFA}->init_acyclic_iterator(q{ });
+        $self->{_acyclical_iterator} = $self->{DFA}->init_acyclic_iterator(q{ });
     }
 
     $self->{plan} = $self->{_acyclical_iterator}->();
 
     return $self->{plan};
+}
+
+# accepts the same parameters as a constructor, used to re-initialize
+# the current reference
+sub plan_nein {
+    my $pkg  = shift;
+    my $self = __PACKAGE__->new(@_);
+
+    # also returns $self for convenience
+    return $self;
 }
 
 # wrapper that combines C<init_plan> and C<run_once> to present an idiom,
@@ -172,21 +177,21 @@ The following operator are available via C<FLAT>:
 
 =item I<concatentation> - there is no character for this, it is implied when
 two symbols are directly next to one another. E.g., C<a b c d>, which can also
-be expressed as C<abcd> or even C<[a][b][c][d]>.  Examples,
+be expressed as C<abcd> or even C<[a][b][c][d]>.
     
-=item
+=item examples,
 
-    my $pre = q{    a        b        c    };            # single char symbol
-    my $pre = q{[symbol1][symbol2][symbol3]};            # multi-char symbol
+      my $pre = q{    a        b        c    };            # single char symbol
+      my $pre = q{[symbol1][symbol2][symbol3]};            # multi-char symbol
 
 =item C<|> - I<union> - represented as a pipe, C<|>. If it looks like an C<or>, that
 is because it is. E.g., C<a|b|c|d> means a valid string is, C<'a' or 'b' or 'c'
 or 'd'>.
 
-=item
+=item examples,
 
-    my $pre = q{    a     |     b     |   c      };      # single char symbol
-    my $pre = q{[symbol1] | [symbol2] | [symbol3]};      # multi-car symbol
+      my $pre = q{    a     |     b     |   c      };      # single char symbol
+      my $pre = q{[symbol1] | [symbol2] | [symbol3]};      # multi-car symbol
 
 =item C<&> - I<shuffle> - represented by the ampersand, C<&>. It is the addition of this
 operator, which is I<closed> under Regular Languages, that allows concurrency to
@@ -196,10 +201,10 @@ still closed under RLs, it's just a way to express a constraint on the NFA that
 preserves the total and partial ordering among shuffled languages. It is this
 property that leads to guaranteeing I<sequential consistency>.
 
-=item
+=item examples,
 
-    my $pre = q{    a     &     b     &   c      };      # single char symbol
-    my $pre = q{[symbol1] & [symbol2] & [symbol3]};      # multi-car symbol
+      my $pre = q{    a     &     b     &   c      };      # single char symbol
+      my $pre = q{[symbol1] & [symbol2] & [symbol3]};      # multi-car symbol
 
 =item C<*> - I<Kleene Star> - L<Sub::Genius> currently will die if one attempts to use
 this, but it is supported just fine by C<FLAT>. It's not supported in this module
@@ -207,20 +212,22 @@ because it admits an I<infinite> language. That's not to say it's not useful for
 towards the aims of this module; but it's not currently understood by the merely
 I<sub-genius> module author(s) how to leverage this operator.
 
-=item
+=item examples,
 
-    my $pre = q{    a     &     b*     &   c      };      # single char symbol
-    my $pre = q{[symbol1] & [symbol2]* & [symbol3]};      # multi-car symbol
+      my $pre = q{    a     &     b*     &   c      };      # single char symbol
+      my $pre = q{[symbol1] & [symbol2]* & [symbol3]};      # multi-car symbol
 
 =item Note: the above PRE is not supported in L<Sub::Genius>, but may be in the future.
 One may tell C<Sub::Genius> to not C<die> when an infinite language is detected
 by passing the C<infinite> flag in the constructor; but currently the behavior
 exhibited by this module is considered I<undefined>:
 
-=item
+=item examples,
 
-    my $pre = q{    a     &     b*     &   c      };      # single char symbol
-    my $sq = Sub::Genius->new(pre => $pre, infinite => 1);
+      my $pre = q{    a     &     b*     &   c      };      # single char symbol
+      my $sq = Sub::Genius->new(pre => $pre, infinite => 1);
+
+=back
 
 =head2 Precedence
 
@@ -230,11 +237,51 @@ Parenthesis are supported as a way to group constituent I<languages>, provide ne
 and exlicitly express precendence. Many examples in this document use parenthesis
 liberally for clarity.
 
-    my $pre = q{ s ( A (a b) C & ( D E F ) ) f };
+      my $pre = q{ s ( A (a b) C & ( D E F ) ) f };
 
-=back
+=head2 Helpful Tools
 
-=head2 Static Code Generation Tool
+C<fash>
+
+Using this tool, one may explore the details of the PRE they are wishing
+to use. It allows one to also leverage external tools, such as I<graphviz>,
+I<JFLAP>[6], and image programs for seeing the underlying automata structures
+implied by the PRE being used. I<Debugging> programs written using the
+model provided for by L<Sub::Genius> is certainly going to require some time
+debugging. C<fash> is just one way to do it.
+
+This is a shell wrapper around L<FLAP> that provides nice things, like
+the ability to dump PFAs generated from a PRE in I<graphviz> format. It
+can also dump interesting things like the AST resulting from the parsing
+of the PRE (done so by C<RecDescent::Parser>).
+
+    $ fash pfa2gv "[abc]&[def]"
+
+    digraph G {
+    graph [rankdir=LR]
+    
+    0 [label="0",shape=circle]
+    1 [label="1",shape=circle]
+    2 [label="2",shape=circle]
+    3 [label="3",shape=circle]
+    4 [label="start (4)",shape=circle]
+    5 [label="5",shape=doublecircle]
+    
+    0 -> 1 [label="abc"]
+    1 -> 5 [label="#lambda"]
+    2 -> 3 [label="def"]
+    3 -> 5 [label="#lambda"]
+    4 -> 0 [label="#lambda"]
+    4 -> 2 [label="#lambda"]
+    }
+
+To see all of the useful commands one may use to explore the PRE when
+determining how to describe the semantics being expressed when using
+L<Sub::Genius>.
+
+    $ fash help
+
+C<stubby>
 
 This module installs a tool called L<stubby> into your local C<$PATH>. For
 the time being it is located in the C<./bin> directory of the distribution
@@ -243,21 +290,23 @@ programming using this model is like.
 
 =head1 SYNOPSIS
 
-    my $pre = q{( A B    &     C D )       Z};
+    my $pre = q{( A B )  &   ( C D )      (Z)};
     #             \ /          \ /         |
-    #>>>>>>>>>>>  L1  <shuff>   L2  <cat>  L3
+    #>>>>>>>>>>> (L1) <shuff>  (L2) <cat>  L3
 
     my $sq = Sub::Genius->new(pre => $pre);
-
-    # sub declaration order has no bearing on anything
-    sub A { print qq{A}  }
-    sub B { print qq{B}  }
-    sub C { print qq{C}  }
-    sub D { print qq{D}  }
-    sub Z { print qq{\n} }
-
     $sq->run_once();
     print qq{\n};
+
+    # NOTE: sub declaration order has no bearing on anything
+    
+    sub A { print qq{A}  } #-\
+    sub B { print qq{B}  } #--- Language 1
+                            
+    sub C { print qq{C}  } #-\
+    sub D { print qq{D}  } #--- Language 2
+                            
+    sub Z { print qq{\n} } #--- Language 3
 
 The following expecity execution of the defined subroutines are all
 valid according to the PRE description above:
@@ -410,9 +459,11 @@ PRE accepted by L<FLAT>.
     my $pre = q{
       [start]
         (
-          [subA] (
+          [subA]
+          (
             [subB_a] [subB_b]
-          ) [subC]
+          )
+          [subC]
         &
           [subD] [subE] [subF]
         )
@@ -634,7 +685,8 @@ Executes Multiprocess Programs", IEEE Trans. Comput. C-28,9 (Sept. 1979), 690-69
 
 =item * 4. L<https://troglodyne.net/video/1615853053>
 
-=item * 5. Introduction to Automata Theory, Languages, and Computation; Hopcroft, Motwani, Ullman.
+=item * 5. Introduction to Automata Theory, Languages, and Computation; Hopcroft, Motwani,
+           Ullman. Any year.
 
 =back
 
@@ -644,7 +696,7 @@ Same terms as perl itself.
 
 =head1 AUTHOR
 
-OODLER 577 E<lt>oodler@cpan.orgE<gt>
+OODLER 577 <oodler@cpan.org>
 
 =head1 ACKNOWLEDGEMENTS
 

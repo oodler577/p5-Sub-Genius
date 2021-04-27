@@ -10,4 +10,11 @@ Changes for Sub::Genius
              - fixed minor attribution error in POD
 
 0.04         2021-04-22 14:30:51-04:04 America/New_York
+             - added install of stubby using dzil's [ExecDir]
              - fixed minor attribution error in POD
+
+0.05         2021-04-22 14:30:51-04:05 America/New_York
+             - cleaning up POD
+             - fixed -TRIAL marker
+             - distributing PRE debug too, "fash" from FLAT
+             - added ./examples directory, 2 "japh" examples

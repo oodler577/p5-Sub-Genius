@@ -40,9 +40,6 @@ my $final_scope = Sub::Genius->new( pre => $pre )->run_any(
     }
 );
 
-require Data::Dumper;
-print Data::Dumper::Dumper($final_scope);
-
 #                      #
 ## S T A T E  S U B S ##
 #                      #
