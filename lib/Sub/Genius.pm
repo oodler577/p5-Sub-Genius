@@ -670,7 +670,7 @@ ones discussed in any basic CS text book on automata, e.g., [5].
 
 =head1 DEBUGGING AND TOOLS
 
-See, L<stubb> and L<fash>.
+See, L<stubby> and L<fash>.
 
 =head1 SEE ALSO
 
