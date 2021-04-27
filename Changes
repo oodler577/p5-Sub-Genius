@@ -5,3 +5,6 @@ Changes for Sub::Genius
 
 0.02         2021-04-22 14:30:51-04:01 America/New_York
              - updated old POD with intended POD
+
+0.03         2021-04-22 14:30:51-04:04 America/New_York
+             - fixed minor attribution error in POD

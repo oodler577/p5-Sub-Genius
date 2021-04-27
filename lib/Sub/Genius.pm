@@ -6,7 +6,7 @@ use feature 'state';
 use FLAT::PFA;
 use FLAT::Regex::WithExtraOps;
 
-our $VERSION = q{0.02};
+our $VERSION = q{0.03};
 
 # constructor
 sub new {
@@ -139,7 +139,7 @@ multi-threaded, shared memory programming to the uniprocess environment
 that is C<perl>.
 
 One final way to say it, if we're going to I<fake the funk out of
-coroutines> [1], let's do it correctly. C<:)>
+coroutines> [4], let's do it correctly. C<:)>
 
 =head1 THIS MODULE IS I<EXPERIMENTAL>
 
@@ -487,6 +487,8 @@ L<Graph::PetriNet>
 =item * 2. Leslie Lamport, "How to Make a Multiprocessor Computer That Correctly Executes Multiprocess Programs", IEEE Trans. Comput. C-28,9 (Sept. 1979), 690-691.
 
 =item * 3. L<https://www.hpl.hp.com/techreports/Compaq-DEC/WRL-95-7.pdf>
+
+=item * 4. L<https://troglodyne.net/video/1615853053>
 
 =back
 
