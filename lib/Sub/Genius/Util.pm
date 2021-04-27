@@ -44,7 +44,12 @@ sub subs2perl {
     my @pre_tokens = ();
     my @perlsubpod = ();
 
+    # make sure subs are not repeated
+    my %uniq = ();
     foreach my $sub (@{$opts{subs}}) {
+      ++$uniq{$sub};
+    } 
+    foreach my $sub (keys %uniq) {
       push @subs, $sub;
       push @pre_tokens, qq{[$sub]};
       push @perlsubpod, qq{=item * C<$sub>\n};
