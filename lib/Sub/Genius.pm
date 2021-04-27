@@ -6,7 +6,7 @@ use feature 'state';
 use FLAT::PFA;
 use FLAT::Regex::WithExtraOps;
 
-our $VERSION = q{0.05};
+our $VERSION = q{0.06};
 
 # constructor
 sub new {
@@ -667,6 +667,10 @@ in the final minimized DFA, which is really just a large graph.
 The algorithms inplemented in L<FLAT> to convert from a PRE to a PFA (equivalent
 to a PetriNet) to a NFA to a DFA, and finally to a minimized DFA are the basic'
 ones discussed in any basic CS text book on automata, e.g., [5].
+
+=head1 DEBUGGING AND TOOLS
+
+See, L<stubb> and L<fash>.
 
 =head1 SEE ALSO
 

@@ -20,72 +20,73 @@ Sending input via C<< <STDIN> >>:
 
 =over 4
 
-=item omestrings "regular_expression"
+=item somestrings "regular_expression"
 
 Outputs strings based on all acyclic paths from start to all final states found in the minimal DFA
 
-=item orestrings "regular_expression"
+=item morestrings "regular_expression"
 
 Outputs strings associated with all acyclic paths and backedges detected on an accepting state from
- start to all final states found in the minimal DFA
 
-=item ump "regular_expression"
+start to all final states found in the minimal DFA
+
+=item dump "regular_expression"
 
 Perl dump parse tree of given regex.
 
-=item fa2jflap "regular_expression"
+=item dfa2jflap "regular_expression"
 
 Dumps out FA in FLAT input format; useful for visualizing and manipulating FA
 
-=item fa2jflap "regular_expression"
+=item nfa2jflap "regular_expression"
 
 Dumps out FA in FLAT input format; useful for visualizing and manipulating FA
 
-=item fa2gv "regular_expression"
+=item dfa2gv "regular_expression"
 
 Dumps out FA in graphviz input format; useful for visualizing FA
 
-=item fa2gv "regular_expression"
+=item nfa2gv "regular_expression"
 
 Dumps out FA in graphviz input format; useful for visualizing FA
 
-=item fa2gv "regular_expression"
+=item pfa2gv "regular_expression"
 
 Dumps out FA in graphviz input format; useful for visualizing FA
 
-=item fa2undgv "regular_expression"
+=item dfa2undgv "regular_expression"
 
 Dumps out undirected graph underlying the FA in graphviz input format; useful for visualizing FA
 
-=item fa2undgv "regular_expression"
+=item nfa2undgv "regular_expression"
 
 Dumps out undirected graph underlying the FA in graphviz input format; useful for visualizing FA
 
-=item fa2undgv "regular_expression"
+=item pfa2undgv "regular_expression"
 
 Dumps out undirected graph underlying the FA in graphviz input format; useful for visualizing FA
 
-=item fa2digraph "regular_expression"
+=item dfa2digraph "regular_expression"
 
 Outputs digraph of FA for input into a program that might operate over the underlying graph.
 
-=item fa2digraph "regular_expression"
+=item nfa2digraph "regular_expression"
 
 Outputs digraph of FA for input into a program that might operate over the underlying graph.
 
-=item fa2digraph "regular_expression"
+=item pfa2digraph "regular_expression"
 
 Outputs digraph of FA for input into a program that might operate over the underlying graph.
 
-=item fa2undirectedgraph "regular_expression"
+=item dfa2undirectedgraph "regular_expression"
 
 Outputs undirected graph of FA for input into a program that might operate over the underlying graph.
 
-=item fa2undirectedgraph "regular_expression"
+=item nfa2undirectedgraph "regular_expression"
 
 Outputs undirected graph of FA for input into a program that might operate over the underlying graph.
 
-=item fa2undirectedgraph "regular_expression"
+=item pfa2undirectedgraph "regular_expression"
 
 Outputs undirected graph of FA for input into a program that might operate over the underlying graph.
 

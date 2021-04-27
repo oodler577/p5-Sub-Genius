@@ -18,3 +18,7 @@ Changes for Sub::Genius
              - fixed -TRIAL marker
              - distributing PRE debug too, "fash" from FLAT
              - added ./examples directory, 2 "japh" examples
+
+0.06         2021-04-22 14:30:51-04:06 America/New_York
+             - fixed fash POD
+             - tweaked distro tarball
