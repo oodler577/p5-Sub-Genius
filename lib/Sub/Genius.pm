@@ -416,10 +416,10 @@ to be expressed rather easily.
 =head2 Meaningful Subroutine Names C<FLAT> allows single character symbols
 to be expressed with out any decorations;
 
-    my $preplan = q{ s ( A (a b) C & ( D E F ) ) f }; my $sq =
-    Sub::Genius->new(preplan => $preplan);
+    my $preplan = q{ s ( A (a b) C & ( D E F ) ) f };
+    my $sq = Sub::Genius->new(preplan => $preplan);
 
-The I<concatentaion> of single symbols is implied, and spaces between
+The I<concatentation> of single symbols is implied, and spaces between
 symbols doesn't even matter. The following is equivalent to the PRE above,
 
     my $preplan = q{s(A(ab)C&(DEF))f}; my $sq = Sub::Genius->new(preplan =>
@@ -522,6 +522,10 @@ way to use this module.
 
 =item C<new>
 
+B<Required parameter:>
+
+C<<preplan => $preplan>>
+
 Constructor, requires a single scalar string argument that is a valid
 PRE accepted by L<FLAT>.
 
@@ -540,6 +544,10 @@ PRE accepted by L<FLAT>.
     };
 
     my $sq = Sub::Genius->new(preplan => $preplan);
+
+B<Optional pramameter:>
+
+C<<'allow-infinite' => 1>>
 
 Note: due to the need to explore the advantages of supporting I<infinite>
 languages, i.e., PREs that contain a C<Kleene> star; C<init_plan> will
