@@ -10,7 +10,7 @@ my $scope  = { thing => 0, };
 # Sub::Genius is not used, but this call list has been generated
 # using Sub::Genius::Util::plan2noSS,
 #
-#  perl -MSub::Genius::Util -e 'print Sub::Genius::Util->plan2noSS(pre => q{A&B&C&D&E&F&G&H})'
+#  perl -MSub::Genius::Util -e 'print Sub::Genius::Util->plan2noSS(plan => q{A&B&C&D&E&F&G&H})'
 #
 $scope = F($scope);
 $scope = C($scope);

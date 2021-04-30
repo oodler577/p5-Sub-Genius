@@ -17,23 +17,29 @@ use Sub::Genius ();
 #
 # paradigm below is effective 'fork'/'join'
 #
+# Note: this demonstrates auto-bracing and comment stripping
+#   via cleanup => 1
+#
 my $pre = q{
-begin
-(
-  J &
-    A &
-      P &
-        H
-)
-end
+# Full line comment, maybe provide some hints
+# somehow behind some comment sentinals
+
+begin          # 'begin' is always run first
+(              # start nested L1; all subs called in this example are execution order oblivious
+  J &          # calls J(), partially ordered with A(), P(), H() 
+    A &        # calls A(), partially ordered
+      P &      # calls P(), partial ordered
+        H      # calls H(), partially ordered
+)              # end nested L1
+end            # 'end' is always called last
 };
 
 my $GLOBAL = {};
 
 # Load PRE describing concurrent semantics
 my $final_scope = Sub::Genius->new(preplan => $pre )->run_any(
-    verbose => $ARGV[0],
-    scope => {
+    verbose  => $ARGV[0],
+    scope    => {
         japh    => [ qw/just Another perl/, q{Hacker,} ],
         curr    => 0,
         contrib => [],

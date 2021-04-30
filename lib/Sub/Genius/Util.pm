@@ -15,7 +15,7 @@ my $invocation = {
 sub _as_once {
   return qq{
 ## initialize Sub::Genius
-my \$sq = Sub::Genius->new( pre => qq{\$pre} );
+my \$sq = Sub::Genius->new(preplan => qq{\$pre} );
 \$sq->init_plan;
 my \$final_scope = \$sq->run_once( scope => {}, ns => q{main}, verbose => 1);};
 }
@@ -23,13 +23,13 @@ my \$final_scope = \$sq->run_once( scope => {}, ns => q{main}, verbose => 1);};
 sub _as_any {
   return qq{
 ## initialize Sub::Genius
-my \$final_state = Sub::Genius->new( pre => qq{\$pre})->run_any( scope => {}, ns => q{main}, verbose => 1);};
+my \$final_state = Sub::Genius->new(preplan => qq{\$pre})->run_any( scope => {}, ns => q{main}, verbose => 1);};
 }
 
 sub _as_all {
   return qq/
 ## initialize Sub::Genius
-my \$sq = Sub::Genius->new( pre => qq{\$pre} );
+my \$sq = Sub::Genius->new(preplan => qq{\$pre} );
 \$sq->init_plan;
 do {
   my \$final_scope = \$sq->run_once( scope => {}, ns => q{main}, verbose => 1);
@@ -51,7 +51,7 @@ sub subs2perl {
     } 
     foreach my $sub (keys %uniq) {
       push @subs, $sub;
-      push @pre_tokens, qq{[$sub]};
+      push @pre_tokens, $sub;
       push @perlsubpod, qq{=item * C<$sub>\n};
     } 
 
@@ -61,6 +61,7 @@ sub subs2perl {
     my $invokemeth = $invocation->{$opts{q{with-run}}}->();
 
     my $perl = qq{
+#!/usr/bin/env perl
 use strict;
 use warnings;
 use feature 'state';
@@ -168,7 +169,7 @@ my \$scope  = { thing => 0, };
 # Sub::Genius is not used, but this call list has been generated
 # using Sub::Genius::Util::plan2noSS,
 #
-#  perl -MSub::Genius::Util -e 'print Sub::Genius::Util->plan2noSS(pre => q{$pre})'
+#  perl -MSub::Genius::Util -e 'print Sub::Genius::Util->plan2noSS(plan => q{$pre})'
 #
 };
 
@@ -200,7 +201,7 @@ In a script;
 
     use Sub::Genius::Util ();
     open my $fh, q{>}, q{./my-script.pl} or die $!;
-    print $fh Sub::Genius::Util->plan2perl(pre => 'A&B&C&D');
+    print $fh Sub::Genius::Util->plan2perl(plan => 'A&B&C&D');
 
 =head1 DESCRIPTION
 
@@ -211,7 +212,7 @@ Given a PRE, dumps a Perl script with the subroutines implied by the symbols
 in the PREs as subroutines. It might be most effective when called as a one
 liner,
 
-    $ perl -MSub::Genius::Util -e 'print Sub::Genius::Util->plan2perl(pre => q{A&B&C&D})' > my-script.pl
+    $ perl -MSub::Genius::Util -e 'print Sub::Genius::Util->plan2perl(plan => q{A&B&C&D})' > my-script.pl
      
 This could get unweildy if you have a concurrent model in place, but anyone
 reviewing this POD should be able to figure out the best way to leverage C<plan2perl>.
@@ -242,7 +243,7 @@ C<plan2noSS>
 Given a PRE, dumps a Perl script that can be run without loading L<Sub::Genius>
 by providing explicit calls, that also pass along a C<$scope> variable.
 
-    $ perl -MSub::Genius::Util -e 'print Sub::Genius::Util->plan2noSS(pre => q{A&B&C&D&E&F&G})' > my-script.pl
+    $ perl -MSub::Genius::Util -e 'print Sub::Genius::Util->plan2noSS(plan => q{A&B&C&D&E&F&G})' > my-script.pl
     
     # does explicitly what Sub::Genius::run_once does, give a sequentialized plan
     # generated from the PRE, 'A&B&C&D&E&F&G'

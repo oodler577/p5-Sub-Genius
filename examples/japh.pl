@@ -18,18 +18,18 @@ use Sub::Genius ();
 # paradigm below is effective 'fork'/'join'
 #
 my $pre = q{
-[begin]
+begin
 (
   J &
     A &
       P &
         H
 )
-[end]
+end
 };
 
 # Load PRE describing concurrent semantics
-my $sq = Sub::Genius->new( pre => $pre );
+my $sq = Sub::Genius->new(preplan => $pre );
 
 my $GLOBAL = {};
 

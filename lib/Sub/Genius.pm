@@ -6,22 +6,59 @@ use feature 'state';
 use FLAT::PFA;
 use FLAT::Regex::WithExtraOps;
 
-our $VERSION = q{0.06};
+our $VERSION = q{0.07};
 
 # constructor
 sub new {
     my $pkg  = shift;
     my %self = @_;
-    die qq{'pre' parameter required!\n} if not defined $self{pre};
-    $self{_regex} = FLAT::Regex::WithExtraOps->new( $self{pre} );
-    my $self = bless \%self, $pkg;
+    my $self = \%self; 
+    bless $self, $pkg;
+    die qq{'pre' parameter required!\n} if not defined $self->{preplan};
+
+    $self->{preprocess} = 1 if not exists $self->{preprocess};
+    # 'pre-process' plan 
+    if ( $self->{preprocess} ) {
+      $self->{preplan} = $self->_trim;
+      $self->{preplan} = $self->_balkanize;
+    }
+    $self->{_regex} = FLAT::Regex::WithExtraOps->new( $self->{preplan} );
     return $self;
 }
 
-# RO accessor for original pre
-sub pre {
+# strips comments and empty lines
+sub _trim {
+  my $self = shift;
+  my $_pre = q{};
+  my @pre  = ();
+  STRIP:
+  foreach my $line (split /\n/, $self->{preplan}) {
+    next STRIP if ($line =~ m/^\s*#|^\s*$/); 
+    my @line = split /\s*#/, $line;
+    push @pre, $line[0];
+  }
+  return join qq{\n}, @pre;
+}
+
+sub _balkanize {
+  my $self = shift;
+  if ($self->{preplan} =~ m/[#\[\]]+/) {
+    die qq{plan to be bracketized must not contain '#', '[', or ']'};
+  }
+  my $_pre = q{};
+  my @pre  = ();
+  STRIP:
+  foreach my $line (split /\n/, $self->{preplan}) {
+    $line =~ s/([a-zA-Z]+)/\[$1\]/g;
+    push @pre, $line;
+  }
+  return join qq{\n}, @pre;
+}
+
+# RO accessor for original plan 
+sub preplan {
     my $self = shift;
-    return $self->{pre};
+    return $self->{preplan};
 }
 
 # RO accessor for original
@@ -37,20 +74,20 @@ sub plan {
     return $self->{plan};
 }
 
-# Converts PRE -> PFA -> NFA -> DFA:
+# Converts plan -> PFA -> NFA -> DFA:
 # NOTE: plan is not generated here, much call ->next()
 #  use param, 'mindfa=>1' to use minimal DFA 
 #  can pass param to underlying ->dfa also, like 'reset => 1'
 sub init_plan {
     my ($self, %opts) = @_;
 
-    # requires PRE (duh)
+    # requires plan (duh)
     die qq{Need to call 'new' to initialize\n} if not $self->{_regex};
 
     # warn if DFA is not acyclic (infinite strings accepted)
-    if ( $self->dfa(%opts)->is_infinite and not $self->{'infinite'} ) {
+    if ( $self->dfa(%opts)->is_infinite and not $self->{'allow-infinite'} ) {
         warn qq{(warn) Infinite language detected. To avoid, do not use Kleene Star (*).\n};
-        warn qq{ Pass 'infinite => 1' to constructor to disable this warning\.\n};
+        warn qq{ Pass 'allow-infinite => 1' to constructor to disable this warning\.\n};
     }
 
     # returns $self, for chaining in __PACKAGE__->run_any
@@ -96,7 +133,7 @@ sub plan_nein {
 }
 
 # wrapper that combines C<init_plan> and C<run_once> to present an idiom,
-#    my $final_scope = Sub::Genius->new($pre)->run_any( scope => { ... });
+#    my $final_scope = Sub::Genius->new($preplan)->run_any( scope => { ... });
 sub run_any {
     my ( $self, %opts ) = @_;
     $self->init_plan;
@@ -114,11 +151,11 @@ sub run_once {
     my ( $self, %opts ) = @_;
     $opts{ns}    //= q{main};
     $opts{scope} //= {};
-    if ( my $plan = $self->next() ) {
+    if ( my $preplan = $self->next() ) {
         if ( $opts{verbose} ) {
-            print qq{plan: "$plan" <<<\n\nExecute:\n\n};
+            print qq{plan: "$preplan" <<<\n\nExecute:\n\n};
         }
-        my @seq = split( / /, $plan );
+        my @seq = split( / /, $preplan );
 
         # main run loop - run once
         local $@;
@@ -181,8 +218,8 @@ be expressed as C<abcd> or even C<[a][b][c][d]>.
     
 =item examples,
 
-      my $pre = q{    a        b        c    };            # single char symbol
-      my $pre = q{[symbol1][symbol2][symbol3]};            # multi-char symbol
+      my $preplan = q{  a        b        c   };            # single char symbol
+      my $preplan = q{symbol1 symbol2 symbol3 };            # multi-char symbol
 
 =item C<|> - I<union> - represented as a pipe, C<|>. If it looks like an C<or>, that
 is because it is. E.g., C<a|b|c|d> means a valid string is, C<'a' or 'b' or 'c'
@@ -190,8 +227,8 @@ or 'd'>.
 
 =item examples,
 
-      my $pre = q{    a     |     b     |   c      };      # single char symbol
-      my $pre = q{[symbol1] | [symbol2] | [symbol3]};      # multi-car symbol
+      my $preplan = q{  a     |    b    |    c   };         # single char symbol
+      my $preplan = q{symbol1 | symbol2 | symbol3};         # multi-car symbol
 
 =item C<&> - I<shuffle> - represented by the ampersand, C<&>. It is the addition of this
 operator, which is I<closed> under Regular Languages, that allows concurrency to
@@ -203,8 +240,8 @@ property that leads to guaranteeing I<sequential consistency>.
 
 =item examples,
 
-      my $pre = q{    a     &     b     &   c      };      # single char symbol
-      my $pre = q{[symbol1] & [symbol2] & [symbol3]};      # multi-car symbol
+      my $preplan = q{   a    &    b    &    c   };         # single char symbol
+      my $preplan = q{symbol1 & symbol2 & symbol3};         # multi-car symbol
 
 =item C<*> - I<Kleene Star> - L<Sub::Genius> currently will die if one attempts to use
 this, but it is supported just fine by C<FLAT>. It's not supported in this module
@@ -214,8 +251,8 @@ I<sub-genius> module author(s) how to leverage this operator.
 
 =item examples,
 
-      my $pre = q{    a     &     b*     &   c      };      # single char symbol
-      my $pre = q{[symbol1] & [symbol2]* & [symbol3]};      # multi-car symbol
+      my $preplan = q{    a     &     b*     &   c      };  # single char symbol
+      my $preplan = q{symbol1 & symbol2* & symbol3};        # multi-car symbol
 
 =item Note: the above PRE is not supported in L<Sub::Genius>, but may be in the future.
 One may tell C<Sub::Genius> to not C<die> when an infinite language is detected
@@ -224,8 +261,8 @@ exhibited by this module is considered I<undefined>:
 
 =item examples,
 
-      my $pre = q{    a     &     b*     &   c      };      # single char symbol
-      my $sq = Sub::Genius->new(pre => $pre, infinite => 1);
+      my $preplan = q{    a     &     b*     &   c      };                 # single char symbol
+      my $sq = Sub::Genius->new(preplan => $preplan, 'allow-infinite' => 1);  # without 'allow-infinite'=>1, C<new> will fail here
 
 =back
 
@@ -237,9 +274,16 @@ Parenthesis are supported as a way to group constituent I<languages>, provide ne
 and exlicitly express precendence. Many examples in this document use parenthesis
 liberally for clarity.
 
-      my $pre = q{ s ( A (a b) C & ( D E F ) ) f };
+      my $preplan = q{ s ( A (a b) C & ( D E F ) ) f };
 
 =head2 Helpful Tools
+
+C<stubby>
+
+This module installs a tool called L<stubby> into your local C<$PATH>. For
+the time being it is located in the C<./bin> directory of the distribution
+and on Github. It will help anyone interested in getting an idea of what
+programming using this model is like.
 
 C<fash>
 
@@ -254,6 +298,9 @@ This is a shell wrapper around L<FLAT> that provides nice things, like
 the ability to dump PFAs generated from a PRE in I<graphviz> format. It
 can also dump interesting things like the AST resulting from the parsing
 of the PRE (done so by C<RecDescent::Parser>).
+
+B<Note>: with C<fash>, multi character symbols must be encased in square backets.
+This is because it calls L<FLAT> routines directly.
 
     $ fash pfa2gv "[abc]&[def]"
 
@@ -281,20 +328,14 @@ L<Sub::Genius>.
 
     $ fash help
 
-C<stubby>
-
-This module installs a tool called L<stubby> into your local C<$PATH>. For
-the time being it is located in the C<./bin> directory of the distribution
-and on Github. It will help anyone interested in getting an idea of what
-programming using this model is like.
 
 =head1 SYNOPSIS
 
-    my $pre = q{( A B )  &   ( C D )      (Z)};
+    my $preplan = q{( A B )  &   ( C D )      (Z)};
     #             \ /          \ /         |
     #>>>>>>>>>>> (L1) <shuff>  (L2) <cat>  L3
 
-    my $sq = Sub::Genius->new(pre => $pre);
+    my $sq = Sub::Genius->new(preplan => $preplan);
     $sq->run_once();
     print qq{\n};
 
@@ -348,8 +389,8 @@ Finite Automata (DFA); once this has been achieved, the DFA is minimized and
 depth-first enumeration of the valid "strings" accepted by the original
 Regular Expression may be considered I<sequentially consistent>. The
 I<parallel> semantics of the Regular Expression are achieved by the
-addition of the C<shuffle> of two or more Regular Languages. The result is
-also a Regular Language.
+addition of the C<shuffle> of two or more Regular Languages. The result
+is also a Regular Language.
 
 From [1],
 
@@ -369,51 +410,79 @@ from [2],
     operations of each individual processor appear in this sequence in
     the order specified by its program.
 
-And it is the C<shuffle> operator that provides the I<concurrent> semantics to
-be expressed rather easily.
+And it is the C<shuffle> operator that provides the I<concurrent> semantics
+to be expressed rather easily.
 
-=head2 Meaningful Subroutine Names
+=head2 Meaningful Subroutine Names C<FLAT> allows single character symbols
+to be expressed with out any decorations;
 
-C<FLAT> allows single character symbols to be expressed with out any decorations;
+    my $preplan = q{ s ( A (a b) C & ( D E F ) ) f }; my $sq =
+    Sub::Genius->new(preplan => $preplan);
 
-    my $pre = q{ s ( A (a b) C & ( D E F ) ) f };
+The I<concatentaion> of single symbols is implied, and spaces between
+symbols doesn't even matter. The following is equivalent to the PRE above,
 
-The I<concatentaion> of single symbols is implied, and spaces between symbols doesn't
-even matter. The following is equivalent to the PRE above,
-
-    my $pre = q{s(A(ab)C&(DEF))f};
+    my $preplan = q{s(A(ab)C&(DEF))f}; my $sq = Sub::Genius->new(preplan =>
+    $preplan);
 
 It's important to note immediately after the above example, that the PRE
-may contain C<symbols> that are made up of more than one character. This
-is done using square brackets (C<[...]>), e.g.:
-
-    my $pre = q{[s]([A]([a][b])[C]&([D][E][F]))[f]};
+may contain C<symbols> that are made up of more than one character.
 
 But this is a mess, so we can use longer subroutine names as symbols and
 break it up in a more readable way:
 
-    my $pre = q{
-      [start]
+    my $preplan = q{
+      start
         (
-          [sub_A]
+          sub_A
           (
-            [sub_a]
-            [sub_b]
+            sub_a
+            sub_b
           )
-          [sub_C]
+          sub_C
         &
          (
-          [sub_D]
-          [sub_E]
-          [sub_F]
+          sub_D
+          sub_E
+          sub_F
          )
         )
-      [fin]
+      fin
     };
+     
+    my $sq = Sub::Genius->new(preplan => $preplan);
 
 This is much nicer and starting to look like a more natural expression
 of concurrent semantics, and allows the expression of subroutines as
 meaningful symbols.
+
+=head2 Inline Comments
+
+A final convenience provided during the preprocessing of PREs (which can be
+turned I<off>), is the support of inline comments and empty lines.
+
+For example,
+
+    my $preplan = q{
+      start         # Language 1 (L1) always runs first
+        (
+          sub_A     # Language 2 (L2) 
+          ( 
+            sub_a   # L2
+            sub_b   # L2
+          )
+          sub_C     # L2
+        &           #<~ shuffle's L2 and L3
+         (
+          sub_D     # L3
+          sub_E     # L3
+          sub_F     # L3
+         )
+        )
+      fin           # Language 4 (L4) always runs last
+    };
+    
+    my $sq = Sub::Genius->new(preplan => $preplan);
 
 =head1 C<PERL>'s UNIPROCESS MEMORY MODEL AND ITS EXECUTION ENVIRONMENT
 
@@ -456,21 +525,21 @@ way to use this module.
 Constructor, requires a single scalar string argument that is a valid
 PRE accepted by L<FLAT>.
 
-    my $pre = q{
-      [start]
+    my $preplan = q{
+      start
         (
-          [subA]
+          subA
           (
-            [subB_a] [subB_b]
+            subB_a subB_b
           )
-          [subC]
+          subC
         &
-          [subD] [subE] [subF]
+          subD subE subF
         )
-      [finish]
+      finish
     };
 
-    my $sq = Sub::Genius->new(pre => $pre);
+    my $sq = Sub::Genius->new(preplan => $preplan);
 
 Note: due to the need to explore the advantages of supporting I<infinite>
 languages, i.e., PREs that contain a C<Kleene> star; C<init_plan> will
@@ -498,20 +567,22 @@ DFA. It's this DFA that is then used to generate the (currently) finite
 set of strings, or I<plans> that are acceptible for the algorithm or
 steps being implemented.
 
-    my $pre = q{
-      [start]
+    my $preplan = q{
+      start
         (
-          [subA]
+          subA
           (
-            [subB_a] [subB_b]
+            subB_a subB_b
           )
-          [subC]
+          subC
         &
-          [subD] [subE] [subF]
+          subD subE subF
         )
-      [finish]
+      finish
     };
-    my $sq = Sub::Genius->new(pre => $pre);
+    
+    my $sq = Sub::Genius->new(preplan => $preplan);
+    
     $sq->init_plan;
 
 =item C<run_once>
@@ -548,9 +619,9 @@ information.
 Runs the execution plan once, returns whatever the last subroutine executed
 returns:
 
-    my $pre = join(q{&},(a..z));
-    my $sq  = Sub::Genius->new(pre => $pre);
-    $plan   = $sq->init_plan;
+    my $preplan = join(q{&},(a..z));
+    my $sq  = Sub::Genius->new(preplan => $preplan);
+    $preplan   = $sq->init_plan;
     my $final_scope = $sq->run_once;
 
 =item C<next>
@@ -574,8 +645,8 @@ AND ITS EXECUTION ENVIRONMENT> in the section above of the same name.
 
 An example of iterating over all valid strings in a loop follows:
 
-    while (my $plan = $sq->next_plan()) {
-      print qq{Plan: $plan\n};
+    while (my $preplan = $sq->next_plan()) {
+      print qq{Plan: $preplan\n};
       $sq->run_once;
     }
 
@@ -586,10 +657,10 @@ with multiple returned final scopes is not part of this module, but can
 be captured during each iteration for future processessing:
 
     my @all_final_scopes = ();
-    while (my $plan = $sq->next_plan()) {
-      print qq{Plan: $plan\n};
+    while (my $preplan = $sq->next_plan()) {
+      print qq{Plan: $preplan\n};
       my $final_scope = $sq->run_once;
-      push @all_final_scopes, { $plan => $final_scope };
+      push @all_final_scopes, { $preplan => $final_scope };
     }
     # now do something with all the final scopes collected
     # by @all_final_scopes
@@ -601,13 +672,13 @@ it's finite.
 As an example, the following admits a large number of orderings in a realtively
 compact DFA, in fact there are 26! (factorial) such valid orderings:
 
-    my $pre = join(q{&},(a..z));
-    my $final_scope = Sub::Genius->new(pre => $pre)->run_once;
+    my $preplan = join(q{&},(a..z));
+    my $final_scope = Sub::Genius->new(preplan => $preplan)->run_once;
 
 Thus, the following will take long time to complete; but it will complete:
 
     my $ans; # global to all subroutines executed
-    while ($my $plan = $sq->next_plan()) {
+    while ($my $preplan = $sq->next_plan()) {
       $sq->run_once;
     }
     print qq{ans: $ans\n};
@@ -625,20 +696,21 @@ excercise for the reader.
 For convenience, this wraps up the steps of C<plan>, C<init_plan>, C<next>,
 and C<run_once>. It presents a simple one line interfaces:
 
-    my $pre = q{
-      [start]
+    my $preplan = q{
+      start
         (
-          [subA]
+          subA
           (
-            [subB_a] [subB_b]
+            subB_a subB_b
           )
-          [subC]
+          subC
         &
-          [subD] [subE] [subF]
+          subD subE subF
         )
-      [finish]
+      finish
     };
-    Sub::Genius->new(pre => $pre)->run_any();
+    
+    Sub::Genius->new(preplan => $preplan)->run_any();
 
 =back
 
@@ -658,7 +730,7 @@ What that means in most cases, is that the more non-deterministic the PRE
 DFA to be created. It would not be hard to overwhelm a system's memory
 with a PRE like the one suggested above,
 
-    my $pre = join(q{&},(a..z));
+    my $preplan = join(q{&},(a..z));
 
 This suggests all 26 letter combinations of all of the lower case letters of
 the alphabet (26! such combinations, as noted above) must be accounted for

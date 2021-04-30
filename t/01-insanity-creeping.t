@@ -5,13 +5,13 @@ use Test::Exception;
 
 use_ok q{Sub::Genius};
 
-my $sq = Sub::Genius->new( pre => q{A&B&C} );
+my $sq = Sub::Genius->new(preplan => q{A&B&C} );
 
 isa_ok $sq, q{Sub::Genius};
 
-is $sq->pre, q{A&B&C}, q{PRE retained};
+is $sq->preplan, q{[A]&[B]&[C]}, q{PRE retained and preprocessed successfully};
 
-can_ok( $sq, qw/new pre _regex init_plan plan plan_nein next dfa run_any run_once/ );
+can_ok( $sq, qw/new preplan _regex init_plan plan plan plan_nein next dfa run_any run_once/ );
 
 $sq->init_plan;
 
@@ -29,11 +29,11 @@ while ( my $plan = $sq->next() ) {
 
 is $sq->next(), undef, q{no plan detected, expected};
 
-$sq = Sub::Genius->new( pre => q{D&E&F} );
+$sq = Sub::Genius->new(preplan => q{D&E&F}, preprocess => 0 );
 
-is $sq->pre, q{D&E&F}, q{PRE retained};
+is $sq->preplan, q{D&E&F}, q{PRE retained};
 
-can_ok( $sq, qw/new pre _regex init_plan plan plan_nein next dfa run_any run_once/ );
+can_ok( $sq, qw/new preplan _regex init_plan plan plan_nein next dfa run_any run_once/ );
 
 $sq->init_plan;
 

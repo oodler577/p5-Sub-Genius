@@ -22,3 +22,11 @@ Changes for Sub::Genius
 0.06         2021-04-22 14:30:51-04:06 America/New_York
              - fixed fash POD
              - tweaked distro tarball
+
+0.07         2021-04-25 14:30:51-04:07 America/New_York
+             - 'pre' (FLAT term) is now called 'preplan', this makes it
+                less implementation dependent
+             - added PRE clensing:
+             -   auto-bracketizes all 'words', makes it unnecessary to
+                 to put space delimited symbols of any length in brackets
+             -   accepts and strips comments and empty line

@@ -2,7 +2,7 @@
 
 See L<https://github.com/oodler577/p5-Sub-Genius/milestone/1> for a
 specific list of documentation and example needs if you wish to contribute
-immediately (and I<we> hope you do).
+immediately (and I<we> hope you do). Please visit L<CONTRIBUTING> if
 
 All may contribute to this effort. I will help I<save> C<perl>, even if
 this approach is deemed sub-optimal (hmm, might be a good name for a new
@@ -69,6 +69,28 @@ Applying L<Sub::Genius> to as many uses as possible will expose obvious
 or non-obvious needs, not only in terms of supporting runtime semantics;
 but also in terms of tooling, e.g., L<stubby> and L<fash>.
 
+=head1 ELEPHANT IN THE ROOM - PERFORMANCE
+
+There is one major issue that needs to be addressed for this approach to be
+fully accepted is that the algorithm used to convert the *parallel* regular
+expression into a DFA suitable for generating I<valid> sequential strings
+(e.g., sequentially consistent execution plans) is not efficient. It's
+from 2006 and was done for correctness rather than for performance.
+
+Since then, a number of researchers have published more efficient
+algorithms for directly converting PREs (REs with the I<shuffle> operator)
+into DFAs. It is not even necessary for the DFA to be I<minimal> as the
+documentation in L<FLAT> implies.
+
+This work belongs to L<FLAT>, so the author(s) of that old module will be
+involved in such improvements. If not, then the module can be replaced
+entirely, since the only thing needed from it (really) is the ability to
+parse a PRE, then from the abstract syntax tree (AST) of the PRE, execute
+the algorithm that most efficiently produces a DFA. The DFA is I<simply>
+a graph structure, so with that almost any approach to creating an iterator
+that enumerates paths between the initial state and an acceptance state
+would suffice.
+
 =head1 I<Some> OPEN QUESTIONS
 
 =over 4
@@ -77,12 +99,12 @@ but also in terms of tooling, e.g., L<stubby> and L<fash>.
 programs in a more I<perlish> or more natural way? Can a C<plan> be
 generated I<at> run time, rather than being done so up front?
 
-=item * Creating examples and documentation applying Sub::Genius to implement
-different memory models, which is now a little more easily possible. (e.g.,
-SMP, futures, etc).
+=item * Creating examples and documentation applying Sub::Genius to
+implement different memory models, which is now a little more easily
+possible. (e.g., SMP, futures, etc).
 
-=item * How can Perl libraries (modules) be composed to provide even more
-unobtrusive access to these memory models and concurrent programming
+=item * How can Perl libraries (modules) be composed to provide even
+more unobtrusive access to these memory models and concurrent programming
 paradigms?
 
 =item * How can the uniprocess C<perl> runtime be used even more effectively
