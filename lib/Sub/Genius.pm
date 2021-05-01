@@ -204,19 +204,22 @@ let's do it correctly. C<:)>
      
     # C O N V E R T  T H E  P L A N  T O  D F A 
     my $sq = Sub::Genius->new(preplan => $preplan);
-    
+
+    # I N I T  T H E  P L A N
+    $sq->init_plan;
+     
     # R U N  T H E  P L A N
-    $sq->run_once();
+    $sq->run_once;
     print qq{\n};
     
     # NOTE: sub declaration order has no bearing on anything
      
     sub A { print qq{A}  } #-\
     sub B { print qq{B}  } #--- Language 1
-                             
+     
     sub C { print qq{C}  } #-\
     sub D { print qq{D}  } #--- Language 2
-                             
+     
     sub Z { print qq{\n} } #--- Language 3
 
 The following expecity execution of the defined subroutines are all
@@ -261,14 +264,14 @@ is I<always> called last
 =head2 Meaningful Subroutine Names C<FLAT> allows single character symbols
 to be expressed with out any decorations;
 
-    my $preplan = q{ s ( A (a b) C & ( D E F ) ) f };
-    my $sq = Sub::Genius->new(preplan => $preplan);
+    my $preplan = q{ s ( A (a b) C & ( D E F ) ) f };  # define plan
+    my $sq = Sub::Genius->new(preplan => $preplan);    # convert plan
 
 The I<concatentation> of single symbols is implied, and spaces between
 symbols doesn't even matter. The following is equivalent to the PRE above,
 
-    my $preplan = q{s(A(ab)C&(DEF))f};
-    my $sq = Sub::Genius->new(preplan => $preplan);
+    my $preplan = q{s(A(ab)C&(DEF))f};                 # define plan
+    my $sq = Sub::Genius->new(preplan => $preplan);    # convert plan
 
 It's important to note immediately after the above example, that the PRE
 may contain C<symbols> that are made up of more than one character.
@@ -276,6 +279,7 @@ may contain C<symbols> that are made up of more than one character.
 But this is a mess, so we can use longer subroutine names as symbols and
 break it up in a more readable way:
 
+    # define plan
     my $preplan = q{
       start
         (
@@ -295,6 +299,7 @@ break it up in a more readable way:
       fin
     };
      
+    # convert plan
     my $sq = Sub::Genius->new(preplan => $preplan);
 
 This is much nicer and starting to look like a more natural expression
@@ -309,6 +314,7 @@ support of inline comments and empty lines.
 
 For example,
 
+    # define plan
     my $preplan = q{
       start         # Language 1 (L1) always runs first
         (
@@ -328,8 +334,8 @@ For example,
       fin           # Language 4 (L4) always runs last
     };
     
+    # convert plan
     my $sq = Sub::Genius->new(preplan => $preplan);
-
 
 =head1 DESCRIPTION 
 
@@ -522,6 +528,7 @@ must be obeyed when serialized. The example is also nicely illustrative
 of the making a I<plan> more readable using comments (not to suggest an
 I<idiom> :)).
 
+    # define plan
     my $preplan = q{
       ##########################################################
       # Plan Summary:                                          #
