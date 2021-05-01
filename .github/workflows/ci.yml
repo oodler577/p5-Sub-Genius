@@ -4,7 +4,7 @@ on:
 jobs:
   ubuntu:
     runs-on: ubuntu-latest
-    container: perl:5.10
+    container: perl:5.14
     steps:
     - uses: actions/checkout@v2
     - name: Install FLAT
