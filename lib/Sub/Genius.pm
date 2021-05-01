@@ -198,8 +198,8 @@ let's do it correctly. C<:)>
 =head1 SYNOPSIS
 
     my $preplan = q{( A B )  &   ( C D )      (Z)};
-    #             \ /          \ /         |
-    #>>>>>>>>>>> (L1) <shuff>  (L2) <cat>  L3
+    #                 \ /          \ /         |
+    #>>>>>>>>>>>     (L1) <shuff>  (L2) <cat>  L3
 
     my $sq = Sub::Genius->new(preplan => $preplan);
     $sq->run_once();
