@@ -427,7 +427,10 @@ from [2],
     the order specified by its program.
 
 And it is the C<shuffle> operator that provides the I<concurrent> semantics
-to be expressed rather easily.
+to be expressed rather I<naturally>, and in a way the human mind can understand.
+This, above all, is absolultely I<critical> for bridging the gap between the
+concurrent semantics people clamor for in I<Perl> and the inherent uniprocess
+environment presented in the C<perl> C<runtime>.
 
 =head2 Regular Language Operators
 
@@ -441,29 +444,33 @@ be expressed as C<abcd> or even C<[a][b][c][d]>.
     
 =item examples,
 
-      my $preplan = q{  a        b        c   };            # single char symbol
-      my $preplan = q{symbol1 symbol2 symbol3 };            # multi-char symbol
+      my $preplan = q{  a        b        c   };       # single char symbol
+      my $preplan = q{symbol1 symbol2 symbol3 };       # multi-char symbol
 
-=item C<|> - I<union> - represented as a pipe, C<|>. If it looks like an C<or>, that
-is because it is. E.g., C<a|b|c|d> means a valid string is, C<'a' or 'b' or 'c'
-or 'd'>.
+=item C<|> - I<union> - represented as a pipe, C<|>.
+
+If it looks like an C<or>, that is because it is. E.g., C<a|b|c|d> means
+a valid string is, C<'a' or 'b' or 'c' or 'd'>.
 
 =item examples,
 
-      my $preplan = q{  a     |    b    |    c   };         # single char symbol
-      my $preplan = q{symbol1 | symbol2 | symbol3};         # multi-car symbol
+      my $preplan = q{  a     |    b    |    c   };    # single char symbol
+      my $preplan = q{symbol1 | symbol2 | symbol3};    # multi-car symbol
 
-=item C<&> - I<shuffle> - represented by the ampersand, C<&>. It is the addition of this
-operator, which is I<closed> under Regular Languages, that allows concurrency to be expressed. It is also generates a I<Parallel Finite Automata>, which is an
-I<e-NFA> with an additional special transition, represented by L<lambda>. It's
-still closed under RLs, it's just a way to express a constraint on the NFA that
-preserves the total and partial ordering among shuffled languages. It is this
-property that leads to guaranteeing I<sequential consistency>.
+=item C<&> - I<shuffle> - represented by the ampersand, C<&>.
+
+It is the addition of this operator, which is I<closed> under Regular
+Languages, that allows concurrency to be expressed. It is also generates
+a I<Parallel Finite Automata>, which is an I<e-NFA> with an additional
+special transition, represented by L<lambda>. It's still closed under RLs,
+it's just a way to express a constraint on the NFA that preserves the
+total and partial ordering among shuffled languages. It is this property
+that leads to guaranteeing I<sequential consistency>.
 
 =item B<E.g.>,
 
-      my $preplan = q{   a    &    b    &    c   };         # single char symbol
-      my $preplan = q{symbol1 & symbol2 & symbol3};         # multi-car symbol
+      my $preplan = q{   a    &    b    &    c   };    # single char symbol
+      my $preplan = q{symbol1 & symbol2 & symbol3};    # multi-car symbol
 
 =item C<*> - I<Kleene Star> - L<Sub::Genius> currently will die if one attempts to use
 this, but it is supported just fine by C<FLAT>. It's not supported in this module
@@ -483,7 +490,7 @@ exhibited by this module is considered I<undefined>:
 
 =item B<E.g.>,
 
-      my $preplan = q{    a     &     b*     &   c      };                 # single char symbol
+      my $preplan = q{    a     &     b*     &   c      };                    # single char symbol
       my $sq = Sub::Genius->new(preplan => $preplan, 'allow-infinite' => 1);  # without 'allow-infinite'=>1, C<new> will fail here
 
 =back
@@ -608,7 +615,7 @@ Accepts two parameters, both are optional:
 
 =over 4
 
-=item ns => q{My::CS::Oblivious::Funcs}
+=item ns => q{My::Sequentially::Consistent::Methods}
 
 Defaults to C<main::>, allows one to specify a namespace that points to a library
 of subroutines that are specially crafted to run in a I<sequentialized> environment.
