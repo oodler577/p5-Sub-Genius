@@ -247,6 +247,7 @@ expressing the following constraints:
 
 =back
 
+
 =head2 Meaningful Subroutine Names C<FLAT> allows single character symbols
 to be expressed with out any decorations;
 
@@ -256,8 +257,8 @@ to be expressed with out any decorations;
 The I<concatentation> of single symbols is implied, and spaces between
 symbols doesn't even matter. The following is equivalent to the PRE above,
 
-    my $preplan = q{s(A(ab)C&(DEF))f}; my $sq = Sub::Genius->new(preplan =>
-    $preplan);
+    my $preplan = q{s(A(ab)C&(DEF))f};
+    my $sq = Sub::Genius->new(preplan => $preplan);
 
 It's important to note immediately after the above example, that the PRE
 may contain C<symbols> that are made up of more than one character.
@@ -292,8 +293,9 @@ meaningful symbols.
 
 =head2 Inline Comments
 
-A final convenience provided during the preprocessing of PREs (which can be
-turned I<off>), is the support of inline comments and empty lines.
+A final convenience provided during the preprocessing of PREs (which can
+be turned I<off> with C<< preprocess => 0 >> passed to C<new>), is the
+support of inline comments and empty lines.
 
 For example,
 
