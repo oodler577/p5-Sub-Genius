@@ -2,8 +2,9 @@ name: Test
 on:
   push
 jobs:
-  test:
+  ubuntu:
     runs-on: ubuntu-latest
+    container: perl:5.10
     steps:
     - uses: actions/checkout@v2
     - name: Install FLAT
