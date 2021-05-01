@@ -30,3 +30,6 @@ Changes for Sub::Genius
              -   auto-bracketizes all 'words', makes it unnecessary to
                  to put space delimited symbols of any length in brackets
              -   accepts and strips comments and empty line
+
+0.08         2021-04-25 14:30:51-05:08 America/New_York
+             - cleaned up and reorganized documentation
