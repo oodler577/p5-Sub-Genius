@@ -341,7 +341,7 @@ subroutine A>.
 
    my $preplan = q{ A   B };
 
-Partially ordered means, I<subroutine B may lead or lag subroutine B, both
+Partially ordered means, I<subroutine A may lead or lag subroutine B, both
 must be executed>.
 
    my $preplan = q{ A & B };
