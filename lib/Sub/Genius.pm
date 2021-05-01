@@ -197,22 +197,26 @@ let's do it correctly. C<:)>
 
 =head1 SYNOPSIS
 
+    # D E F I N E  T H E  P L A N
     my $preplan = q{( A B )  &   ( C D )      (Z)};
     #                 \ /          \ /         |
     #>>>>>>>>>>>     (L1) <shuff>  (L2) <cat>  L3
-
+     
+    # C O N V E R T  T H E  P L A N  T O  D F A 
     my $sq = Sub::Genius->new(preplan => $preplan);
+    
+    # R U N  T H E  P L A N
     $sq->run_once();
     print qq{\n};
-
-    # NOTE: sub declaration order has no bearing on anything
     
+    # NOTE: sub declaration order has no bearing on anything
+     
     sub A { print qq{A}  } #-\
     sub B { print qq{B}  } #--- Language 1
-                            
+                             
     sub C { print qq{C}  } #-\
     sub D { print qq{D}  } #--- Language 2
-                            
+                             
     sub Z { print qq{\n} } #--- Language 3
 
 The following expecity execution of the defined subroutines are all
@@ -239,11 +243,17 @@ expressing the following constraints:
 
 =over 4
 
-=item C<sub A> must run before C<sub B>
+=item C<sub A>
 
-=item C<sub C> must run before C<sub D>
+I<must> run before C<sub B>
 
-=item C<sub Z> is always called last
+=item C<sub C>
+
+I<must> run before C<sub D>
+
+=item C<sub Z>
+
+is I<always> called last
 
 =back
 
