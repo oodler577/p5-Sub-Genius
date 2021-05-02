@@ -2,9 +2,9 @@ name: Test
 on:
   push
 jobs:
-  ubuntu-01:
+  ubuntu-perl5.8:
     runs-on: ubuntu-latest
-    container: perl:5.08
+    container: perl:5.8
     steps:
     - uses: actions/checkout@v2
     - name: Install FLAT
@@ -13,9 +13,53 @@ jobs:
     - name: Test
       run: |
         prove -lr ./t
-  ubuntu-02:
+  ubuntu-perl5.10:
     runs-on: ubuntu-latest
     container: perl:5.10
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install FLAT
+      run: |
+        cpanm install FLAT Test::More Test::Exception
+    - name: Test
+      run: |
+        prove -lr ./t
+  ubuntu-perl5.14:
+    runs-on: ubuntu-latest
+    container: perl:5.14
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install FLAT
+      run: |
+        cpanm install FLAT Test::More Test::Exception
+    - name: Test
+      run: |
+        prove -lr ./t
+  ubuntu-perl5.22:
+    runs-on: ubuntu-latest
+    container: perl:522.
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install FLAT
+      run: |
+        cpanm install FLAT Test::More Test::Exception
+    - name: Test
+      run: |
+        prove -lr ./t
+  ubuntu-perl5.28:
+    runs-on: ubuntu-latest
+    container: perl:5.28
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install FLAT
+      run: |
+        cpanm install FLAT Test::More Test::Exception
+    - name: Test
+      run: |
+        prove -lr ./t
+  ubuntu-perl5.32:
+    runs-on: ubuntu-latest
+    container: perl:5.32
     steps:
     - uses: actions/checkout@v2
     - name: Install FLAT
