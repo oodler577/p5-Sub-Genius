@@ -12,5 +12,4 @@ jobs:
         cpanm install FLAT Test::More Test::Exception
     - name: Test
       run: |
-        cpanm -n --with-recommends --installdeps .
-        prove -lr ./t || find /github/home/.cpanm/work/ -name build.log | xargs cat
+        prove -lr ./t
