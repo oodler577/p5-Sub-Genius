@@ -2,17 +2,6 @@ name: Test
 on:
   push
 jobs:
-  ubuntu-perl58:
-    runs-on: ubuntu-latest
-    container: perl:5.8
-    steps:
-    - uses: actions/checkout@v2
-    - name: Install FLAT
-      run: |
-        cpanm install FLAT Test::More Test::Exception
-    - name: Test
-      run: |
-        prove -lr ./t
   ubuntu-perl510:
     runs-on: ubuntu-latest
     container: perl:5.10
@@ -23,7 +12,7 @@ jobs:
         cpanm install FLAT Test::More Test::Exception
     - name: Test
       run: |
-        prove -lr ./t
+        perl -Ilib ./t
   ubuntu-perl514:
     runs-on: ubuntu-latest
     container: perl:5.14
@@ -34,18 +23,7 @@ jobs:
         cpanm install FLAT Test::More Test::Exception
     - name: Test
       run: |
-        prove -lr ./t
-  ubuntu-perl522:
-    runs-on: ubuntu-latest
-    container: perl:522.
-    steps:
-    - uses: actions/checkout@v2
-    - name: Install FLAT
-      run: |
-        cpanm install FLAT Test::More Test::Exception
-    - name: Test
-      run: |
-        prove -lr ./t
+        perl -Ilib ./t
   ubuntu-perl528:
     runs-on: ubuntu-latest
     container: perl:5.28
@@ -56,7 +34,7 @@ jobs:
         cpanm install FLAT Test::More Test::Exception
     - name: Test
       run: |
-        prove -lr ./t
+        perl -Ilib ./t
   ubuntu-perl532:
     runs-on: ubuntu-latest
     container: perl:5.32
@@ -67,4 +45,4 @@ jobs:
         cpanm install FLAT Test::More Test::Exception
     - name: Test
       run: |
-        prove -lr ./t
+        perl -Ilib ./t
