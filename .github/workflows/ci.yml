@@ -4,7 +4,7 @@ on:
 jobs:
   ubuntu:
     runs-on: ubuntu-latest
-    container: perl:5.14
+    container: perl:5.08
     steps:
     - uses: actions/checkout@v2
     - name: Install FLAT
@@ -12,5 +12,14 @@ jobs:
         cpanm install FLAT Test::More Test::Exception
     - name: Test
       run: |
-        cpanm -n --with-recommends --installdeps .
+        prove -lr ./t
+    runs-on: ubuntu-latest
+    container: perl:5.10
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install FLAT
+      run: |
+        cpanm install FLAT Test::More Test::Exception
+    - name: Test
+      run: |
         prove -lr ./t
