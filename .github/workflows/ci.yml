@@ -2,7 +2,7 @@ name: Test
 on:
   push
 jobs:
-  ubuntu-perl5.8:
+  ubuntu-perl58:
     runs-on: ubuntu-latest
     container: perl:5.8
     steps:
@@ -13,7 +13,7 @@ jobs:
     - name: Test
       run: |
         prove -lr ./t
-  ubuntu-perl5.10:
+  ubuntu-perl510:
     runs-on: ubuntu-latest
     container: perl:5.10
     steps:
@@ -24,7 +24,7 @@ jobs:
     - name: Test
       run: |
         prove -lr ./t
-  ubuntu-perl5.14:
+  ubuntu-perl514:
     runs-on: ubuntu-latest
     container: perl:5.14
     steps:
@@ -35,7 +35,7 @@ jobs:
     - name: Test
       run: |
         prove -lr ./t
-  ubuntu-perl5.22:
+  ubuntu-perl522:
     runs-on: ubuntu-latest
     container: perl:522.
     steps:
@@ -46,7 +46,7 @@ jobs:
     - name: Test
       run: |
         prove -lr ./t
-  ubuntu-perl5.28:
+  ubuntu-perl528:
     runs-on: ubuntu-latest
     container: perl:5.28
     steps:
@@ -57,7 +57,7 @@ jobs:
     - name: Test
       run: |
         prove -lr ./t
-  ubuntu-perl5.32:
+  ubuntu-perl532:
     runs-on: ubuntu-latest
     container: perl:5.32
     steps:
