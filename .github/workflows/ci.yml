@@ -2,7 +2,7 @@ name: Test
 on:
   push
 jobs:
-  ubuntu:
+  ubuntu-01:
     runs-on: ubuntu-latest
     container: perl:5.08
     steps:
@@ -13,6 +13,7 @@ jobs:
     - name: Test
       run: |
         prove -lr ./t
+  ubuntu-02:
     runs-on: ubuntu-latest
     container: perl:5.10
     steps:
