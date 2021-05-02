@@ -13,4 +13,4 @@ jobs:
     - name: Test
       run: |
         cpanm -n --with-recommends --installdeps .
-        prove -lr ./t
+        prove -lr ./t || find /github/home/.cpanm/work/ -name build.log | xargs cat
