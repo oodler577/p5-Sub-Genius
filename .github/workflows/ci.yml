@@ -12,7 +12,7 @@ jobs:
         cpanm install FLAT Test::More Test::Exception
     - name: Test
       run: |
-        perl -Ilib ./t
+        perl -Ilib ./t/*.t
   ubuntu-perl514:
     runs-on: ubuntu-latest
     container: perl:5.14
@@ -23,7 +23,7 @@ jobs:
         cpanm install FLAT Test::More Test::Exception
     - name: Test
       run: |
-        perl -Ilib ./t
+        perl -Ilib ./t/*.t
   ubuntu-perl528:
     runs-on: ubuntu-latest
     container: perl:5.28
@@ -34,7 +34,7 @@ jobs:
         cpanm install FLAT Test::More Test::Exception
     - name: Test
       run: |
-        perl -Ilib ./t
+        perl -Ilib ./t/*.t
   ubuntu-perl532:
     runs-on: ubuntu-latest
     container: perl:5.32
@@ -45,4 +45,4 @@ jobs:
         cpanm install FLAT Test::More Test::Exception
     - name: Test
       run: |
-        perl -Ilib ./t
+        perl -Ilib ./t/*.t
