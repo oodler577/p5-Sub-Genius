@@ -1,15 +1,31 @@
-name: Test
+name: perl
 on:
-  push
+  push:
+    branches:
+      - '*'
+    tags-ignore:
+      - '*'
+  pull_request:
 jobs:
   ubuntu:
-    runs-on: ubuntu-latest
-    container: perl:5.14
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        perl-version: ['5.8', '5.10', '5.14', '5.20', '5.28', '5.32']
+        include:
+          - perl-version: '5.30'
+            os: ubuntu-latest
+            release-test: true
+            coverage: true
+    container: perl:${{ matrix.perl-version }}
     steps:
-    - uses: actions/checkout@v2
-    - name: Install FLAT
-      run: |
-        cpanm install FLAT Test::More Test::Exception
-    - name: Test
-      run: |
-        prove -lr ./t
+      - uses: actions/checkout@v2
+      - run: cpanm cpanm install FLAT Test::More Test::Exception
+      - name: Run release tests
+        if: ${{ matrix.release-test }}
+        env:
+          RELEASE_TESTING: 1
+        run: |
+          prove -lr t
