@@ -33,3 +33,12 @@ Changes for Sub::Genius
 
 0.08         2021-04-25 14:30:51-05:08 America/New_York
              - cleaned up and reorganized documentation
+
+0.09         2021-04-25 14:30:51-05:09 America/New_York
+             - added caching (on by default)
+             - fixed bug in run_once that unnecessarily
+             called ->nex()t; now next() is only called if
+             ->plan() is not defined
+             - removed mindfa option; if this is desired
+               ->dfa can be manipulated directly,
+               $sq->dfa($sq->dfa->min_dfa->trim_sinks)

@@ -5,66 +5,119 @@ use warnings;
 use feature 'state';
 use FLAT::PFA;
 use FLAT::Regex::WithExtraOps;
+use Digest::MD5 ();
+use Storable    ();
+use Cwd         ();
 
-our $VERSION = q{0.08};
+our $VERSION = q{0.09};
 
 # constructor
 sub new {
     my $pkg  = shift;
     my %self = @_;
-    my $self = \%self; 
+    my $self = \%self;
     bless $self, $pkg;
     die qq{'pre' parameter required!\n} if not defined $self->{preplan};
 
-    $self->{preprocess} = 1 if not exists $self->{preprocess};
-    # 'pre-process' plan 
-    if ( $self->{preprocess} ) {
-      $self->{preplan} = $self->_trim;
-      $self->{preplan} = $self->_balkanize;
+    # set to undef to disable preprocessing
+    if ( not exists $self->{preprocess} ) {
+        $self->{preprocess} = 1;
     }
-    $self->{_regex} = FLAT::Regex::WithExtraOps->new( $self->{preplan} );
+
+    # set to undef to disable caching
+    if ( not exists $self->{cachedir} ) {
+        $self->cachedir( sprintf( qq{%s/%s}, Cwd::cwd(), q{_Sub::Genius} ) );
+    }
+
+    # 'pre-process' plan
+    if ( $self->{preprocess} ) {
+        $self->_trim;
+        $self->_balkanize;
+    }
+
+    # generates checksum based on post-preprocessed form
+    $self->checksum( Digest::MD5::md5_hex( $self->preplan ) );
+
+    $self->pregex(FLAT::Regex::WithExtraOps->new( $self->preplan ));
     return $self;
+}
+
+sub cachefile {
+    my $self = shift;
+    return ($self->cachedir) ? sprintf( qq{%s/%s}, $self->cachedir, $self->checksum ) : undef;
+}
+
+sub cachedir {
+    my ( $self, $dir ) = @_;
+    if ($dir) {
+        $self->{cachedir} = $dir;
+        if ( not -d $self->{cachedir} ) {
+            mkdir $self->{cachedir}, 0700 || die $!;
+        }
+    }
+    return $self->{cachedir};
+}
+
+sub checksum {
+    my ( $self, $sum ) = @_;
+    if ($sum) {
+        $self->{checksum} = $sum;
+    }
+    return $self->{checksum};
+}
+
+sub do_cache {
+    my $self = shift;
+    return ( $self->cachedir and $self->checksum and $self->cachefile );
 }
 
 # strips comments and empty lines
 sub _trim {
-  my $self = shift;
-  my $_pre = q{};
-  my @pre  = ();
+    my $self = shift;
+    my $_pre = q{};
+    my @pre  = ();
   STRIP:
-  foreach my $line (split /\n/, $self->{preplan}) {
-    next STRIP if ($line =~ m/^\s*#|^\s*$/); 
-    my @line = split /\s*#/, $line;
-    push @pre, $line[0];
-  }
-  return join qq{\n}, @pre;
+    foreach my $line ( split /\n/, $self->{preplan} ) {
+        next STRIP if ( $line =~ m/^\s*#|^\s*$/ );
+        my @line = split /\s*#/, $line;
+        push @pre, $line[0];
+    }
+    $self->preplan( join qq{\n}, @pre );
+    return $self->preplan;
 }
 
 sub _balkanize {
-  my $self = shift;
-  if ($self->{preplan} =~ m/[#\[\]]+/) {
-    die qq{plan to be bracketized must not contain '#', '[', or ']'};
-  }
-  my $_pre = q{};
-  my @pre  = ();
+    my $self = shift;
+    if ( $self->{preplan} =~ m/[#\[\]]+/ ) {
+        die qq{plan to be bracketized must not contain '#', '[', or ']'};
+    }
+    my $_pre = q{};
+    my @pre  = ();
   STRIP:
-  foreach my $line (split /\n/, $self->{preplan}) {
-    $line =~ s/([a-zA-Z]+)/\[$1\]/g;
-    push @pre, $line;
-  }
-  return join qq{\n}, @pre;
+    foreach my $line ( split /\n/, $self->{preplan} ) {
+        $line =~ s/([a-zA-Z]+)/\[$1\]/g;
+        push @pre, $line;
+    }
+    $self->preplan( join qq{\n}, @pre );
+    return $self->preplan;
 }
 
-# RO accessor for original plan 
+# RO accessor for original plan
 sub preplan {
-    my $self = shift;
+    my ( $self, $pp ) = @_;
+    if ($pp) {
+        $self->{preplan} = $pp;
+    }
     return $self->{preplan};
 }
 
 # RO accessor for original
-sub _regex {
-    my $self = shift;
-    return $self->{_regex};
+sub pregex {
+    my ($self, $pregex)  = @_;
+    if ( $pregex ) {
+      $self->{pregex} = $pregex;
+    }
+    return $self->{pregex};
 }
 
 # set/updated whenever ->next() and friends are called, simple way to
@@ -74,47 +127,74 @@ sub plan {
     return $self->{plan};
 }
 
+# setter/getter for DFA
+sub dfa {
+    my ( $self, $dfa ) = @_;
+    if ($dfa) {
+        $self->{DFA} = $dfa;
+    }
+    return $self->{DFA};
+}
+
 # Converts plan -> PFA -> NFA -> DFA:
 # NOTE: plan is not generated here, much call ->next()
-#  use param, 'mindfa=>1' to use minimal DFA 
 #  can pass param to underlying ->dfa also, like 'reset => 1'
 sub init_plan {
-    my ($self, %opts) = @_;
+    my ( $self, %opts ) = @_;
 
     # requires plan (duh)
-    die qq{Need to call 'new' to initialize\n} if not $self->{_regex};
+    die qq{Need to call 'new' with 'preplan => q{PRE...}' to initialize\n} if not $self->pregex;
+
+    # convert PRE to DFA
+    $self->convert_pregex_to_dfa(%opts);
 
     # warn if DFA is not acyclic (infinite strings accepted)
-    if ( $self->dfa(%opts)->is_infinite and not $self->{'allow-infinite'} ) {
-        warn qq{(warn) Infinite language detected. To avoid, do not use Kleene Star (*).\n};
-        warn qq{ Pass 'allow-infinite => 1' to constructor to disable this warning\.\n};
+    if ( $self->dfa->is_infinite ) {
+        if ( not $self->{'allow-infinite'} ) {
+            warn qq{(fatal) Infinite language detected. To avoid, do not use Kleene Star (*).\n};
+            die qq{  pass in 'allow-infinite => 1' to constructor to disable this warning.\n};
+        }
     }
+
+    # else - currently no meaningful way to control 'infinite' languages, this needs to
+    # be investigated
 
     # returns $self, for chaining in __PACKAGE__->run_any
     return $self;
 }
 
 # to force a reset, pass in, C<reset => 1>.; this makes a lot of cool things
-sub dfa {
+sub convert_pregex_to_dfa {
     my ( $self, %opts ) = @_;
-    if ( not defined $self->{DFA} or defined $opts{reset} ) {
-        $self->{DFA} = $self->{_regex}->as_pfa->as_nfa->as_dfa;
-        if (not defined $opts{'mindfa'}) {
-          $self->{DFA} = $self->{_regex}->as_pfa->as_nfa->as_dfa->trim_sinks;
-        }
-        else {
-          $self->{DFA} = $self->{_regex}->as_pfa->as_nfa->as_dfa->as_min_dfa->trim_sinks;
+
+    # look for cached DFA
+    if ( not $self->{reset} and $self->do_cache ) {
+        if (-e $self->cachefile) {
+            $self->dfa( Storable::retrieve($self->cachefile) );
+            return $self->dfa;
         }
     }
-    return $self->{DFA};
+
+    if ( not $self->dfa or defined $opts{reset} ) {
+        $self->dfa( $self->pregex->as_pfa->as_nfa->as_dfa->trim_sinks );
+
+        # save to cache
+        if ( $self->do_cache ) {
+            Storable::store( $self->dfa, $self->cachefile );
+        }
+    }
+    return $self->dfa;
 }
 
 # Acyclic String Iterator
 #   force a reset, pass in, C<reset => 1>.
 sub next {
     my ( $self, %opts ) = @_;
+
+    die qq{(fatal) Use 'inext' instead of 'next' for infinite languages.\n} if $self->dfa->is_infinite;
+
     if ( not defined $self->{_acyclical_iterator} or $opts{reset} ) {
-        $self->{_acyclical_iterator} = $self->{DFA}->init_acyclic_iterator(q{ });
+        $self->{_acyclical_iterator} = $self->dfa->init_acyclic_iterator(q{ });
     }
 
     $self->{plan} = $self->{_acyclical_iterator}->();
@@ -143,15 +223,20 @@ sub run_any {
 
 # Runs any single serialization ONCE
 # defaults to main::, specify namespace of $sub
-# with
-# * ns => q{Some::NS}    # specify name space
-# * scope => { }         # specify initial state of pipeline accumulator
-# * verbose => 0|1       # output runtime diagnostics
+#
+# * ns      => q{Some::NS}  # specify name space
+# * scope   => { }          # specify initial state of pipeline accumulator
+# * verbose => 0|1          # output runtime diagnostics
 sub run_once {
     my ( $self, %opts ) = @_;
     $opts{ns}    //= q{main};
     $opts{scope} //= {};
-    if ( my $preplan = $self->next() ) {
+
+    # only call interator if $self->{plan} has not yet been set
+    $self->next if not $self->plan;
+
+    # check plan is set, just to be sure
+    if ( my $preplan = $self->plan ) {
         if ( $opts{verbose} ) {
             print qq{plan: "$preplan" <<<\n\nExecute:\n\n};
         }
@@ -165,6 +250,32 @@ sub run_once {
         }
     }
     return $opts{scope};
+}
+
+#
+# D R A G O N S
+#            ~~~> *E X P E R I M E N T A L* (not even in POD yet)
+#
+
+# Deep (Infinite) String Iterator
+#   force a reset, pass in, C<reset => 1>.
+#
+# To us:
+#   my $sq = Sub::Genius=->new(preplan => q{a&b*c}, => 'allow-infinite' => 1);
+#   $sq->init_plan;
+#
+#
+sub inext {
+    my ( $self, %opts ) = @_;
+    local $| = 1;
+    $opts{max} //= 5;
+    if ( not defined $self->{_deepdft_iterator} or $opts{reset} ) {
+        $self->{_deepdft_iterator} = $self->dfa->init_deepdft_iterator( $opts{max}, q{ } );
+    }
+
+    $self->{plan} = $self->{_deepdft_iterator}->();
+
+    return $self->{plan};
 }
 
 1;
@@ -582,7 +693,20 @@ PRE accepted by L<FLAT>.
 
 B<Optional pramameter:>
 
-C<< q{allow-infinite} => 1 >>
+=over 4
+
+=item C<< cachedir => $dir >>
+
+Sets default cache directory, which by default is C<$(pwd)/_Sub::Genius>.
+
+If set to C<undef>, caching is disabled.
+
+=item C<< preprocess => undef|0 >>
+
+Disables the current preprocessing, which strips comments and adds brackets
+to all I<words> in the PRE.
+
+=item C<< q{allow-infinite} => 1 >>
 
 Default is C<undef> (I<off>).
 
@@ -597,6 +721,8 @@ are being considered at this time.
 The reference, if captured by a scalar, can be wholly reset using the same
 parameters as C<new> but calling the C<plan_nein> methods. It's a minor
 convenience, but one all the same.
+
+=back
 
 =item C<init_plan>
 
@@ -826,6 +952,14 @@ in the final minimized DFA, which is really just a large graph.
 The algorithms inplemented in L<FLAT> to convert from a PRE to a PFA (equivalent
 to a PetriNet) to a NFA to a DFA, and finally to a minimized DFA are the basic'
 ones discussed in any basic CS text book on automata, e.g., [5].
+
+=head2 Caching
+
+The practicality of converting the PRE to a DFA suitable for generating valid
+execution orders is reached relatively quickly as more C<shuffle>s are added.
+For this reason, C<init_plan> looks for a cache file. If available, it's loaded
+saving potentally long start up times.
+
 
 =head1 SEE ALSO
 

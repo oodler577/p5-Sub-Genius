@@ -11,7 +11,7 @@ can_ok( $sq, qw/subs2perl plan2noSS/ );
 
 # sub class of Sub::Genius, aktually
 isa_ok $sq, q{Sub::Genius};
-can_ok( $sq, qw/new preplan _regex init_plan plan plan_nein next dfa run_any run_once/ );
+can_ok( $sq, qw/new preplan pregex init_plan plan plan_nein next dfa run_any run_once/ );
 
 done_testing();
 exit;
