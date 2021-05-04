@@ -14,7 +14,7 @@ require Data::Dumper;
 my $subcommand = shift @ARGV;
 
 sub usage {
-    die qq{USAGE:\n   stubby init [-r|--run [once|any|all] -s|--subroutines "sub1 sub2 sub3 ..." > my-script.pl.\n};
+    die qq{USAGE:\n   stubby init [-r|--run [once|any|all|nodeps] -s|--subroutines "sub1 sub2 sub3 ..." > my-script.pl.\n};
 }
 
 # enforce subcommand
@@ -26,22 +26,42 @@ if ( not $subcommand or $subcommand ne q{init} ) {
 my %opts = ( R => q{once} );    # default is 'once', as in C<Sub::Genius::run_once>
 Getopt::Long::GetOptions(
     \%opts,                     # container for all processed options
-    q/s|subroutines=s/,         # specify name of subroutines; NOT a PRE!
+    q/p|preplan=s/,             # specify preplan (PRE), required for '--run nodeps'
     q/R|run=s/,                 # specify invocation method: once, any, all, none
+    q/s|subroutines=s/,         # specify name of subroutines; NOT a PRE!
 );
 
 # option validation
-if ( not defined $opts{s} ) {
+
+if ( not grep { /$opts{R}/ } (qw/once any all nodeps/) ) {
+    warn qq{'--run' is required and must be one of 4 values: 'once', 'any', 'all', or 'nodeps'\n};
+    usage;
+}
+
+if ( not defined $opts{s} and not defined $opts{p} ) {
     warn qq{'--subroutines' is required, two or more subroutine names is recommended\n};
     usage;
 }
-if ( not grep { /$opts{R}/ } (qw/once any all none/) ) {
-    warn qq{'--run' is required and must be one of 4 values: 'once', 'any', or 'all'\n};
+
+if ( $opts{s} and  $opts{s} !~ m/^[\w ]+$/  and not defined $opts{p} ) {
+    warn qq{'--subroutines' only permits words and spaces, seems you supplied a PRE?\n};
     usage;
 }
 
 # Code generation support is limited at this time
-print Sub::Genius::Util->subs2perl( q{subs} => [ split( /[\s&|,]/, $opts{s} ) ], q{with-run} => $opts{R} );
+my $dispatch = {
+    once   => sub { print Sub::Genius::Util->subs2perl( q{subs} => [ split( /[\s&|,]/, $opts{s} ) ], q{with-run} => $opts{R} ) },
+    any    => sub { print Sub::Genius::Util->subs2perl( q{subs} => [ split( /[\s&|,]/, $opts{s} ) ], q{with-run} => $opts{R} ) },
+    all    => sub { print Sub::Genius::Util->subs2perl( q{subs} => [ split( /[\s&|,]/, $opts{s} ) ], q{with-run} => $opts{R} ) },
+    nodeps => sub {
+        die qq{'--run nodeps' requires '--preplan = "An & Actualy & PRE"'\n} if not defined $opts{p};
+        print Sub::Genius::Util->plan2nodeps(preplan => $opts{p});
+    },
+};
+
+if (exists $dispatch->{$opts{R}} and q{CODE} eq ref $dispatch->{$opts{R}}) {
+  $dispatch->{$opts{R}}->();
+}
 
 exit;
 __END__
@@ -50,17 +70,35 @@ __END__
 
 stubby - commandline tool for dumping stub Perl programs sequentialized using L<Sub::Genius>.
 
+I<EXPERIMENTAL>, subject to wild swings in options and behaviors.
+
 =head1 SYNOPSIS
 
-    $ stubby init [--run [once|any|all]] -s|--subroutines = "sub1 sub2 sub3 ..."
+    $ stubby init [--run [once|any|all|nodeps]] [-s|--subroutines = "sub1 sub2 sub3 ..."] [-p|--preplan = "an & actual (PRE) ..."] 
+
+    $ stubby precache [-f preplan.dat|--preplan = 'PRE...'] [-d path/to/cachedir]  # NOT YET IMPLEMENTED
 
 Example,
 
-    $ stubby init --run once --subroutines "init spawn threadsA criticalsectA threadsB criticalsectB combine" > ./spawn-combine.pl
+with C<use Sub::Genius ();>:
+ 
+    $ stubby init --run once   -s "init spawn threadsA criticalsectA threadsB criticalsectB combine" > ./spawn-combine.pl
+
+without C<Sub::Genius>:
+
+    $ stubby init --run nodeps -p "init ( threadA & threadB & threadC ) criticalSection ( threadA & threadB & threadC ) finalize" > ./spawn-combine.pl
+
+cache only (for precompiling DFAs) B<NOT YET IMPLEMENTED>
+
+    $ stubby precache -p "init ( threadA & threadB & threadC ) criticalSection ( threadA & threadB & threadC ) finalize" # NOT YET IMPLEMENTED
+
+    $ stubby precache -f ./my-preplan.dat -d put/in/here # NOT YET IMPLEMENTED
 
 =head1 DESCRIPTION
 
 Commandline tool for generating boilerplate for use with L<Sub::Genius>.
+
+Leverages the caching effects of L<Sub::Genius> (see that POD for more information).
 
 =head2 General Development Workflow
 
@@ -91,21 +129,29 @@ the lifetime of the program might look like this:
 
 Subcommand, currently only one supported.
 
-=item C<-s|--subroutines>
-
-Specify a space delimited list of subroutine names to generate stubs and a unannotated PRE.
-
 =item C<-R|--run>
 
 Choose invocation method to use in the code. The default is C<once>.
 
 Options include:
 
-C<once> - generates code that invokes C<Sub::Genius::run_once>
+C<once> - generates code that invokes C<Sub::Genius::run_once>; requires C<-s|--subroutine>
 
-C<any>  - generates code that invokes C<Sub::Genius::run_any>
+C<any>  - generates code that invokes C<Sub::Genius::run_any>; requires C<-s|--subroutine>
 
-C<all>  - generates code that invokes C<Sub::Genius::run_once>, in a C<do { ... } while ()> loop
+C<all>  - generates code that invokes C<Sub::Genius::run_once>, in a C<do { ... } while ()> loop; requires C<-s|--subroutine>
+
+C<nodeps> - generates code that is free of any dependencies, including C<Sub::Genius>; requires C<-p|--preplan>
+
+=item C<-s|--subroutines>
+
+Specify a space delimited list of subroutine names to generate stubs and a unannotated PRE.
+
+Command fails if provided any values other than words and spaces (to prevent misinterpretation of PRE - may change).
+
+=item C<-p|--preplan>
+
+An actual PRE, used with C<--run nodeps>.
 
 =back
 
@@ -123,5 +169,4 @@ perl5
 
 =head1 AUTHOR
 
-OODLER 577 E<lt>oodler@cpan.org</gt>
-
+OODLER 577 E<lt>oodler@cpan.orgE<gt>

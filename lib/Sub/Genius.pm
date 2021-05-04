@@ -17,7 +17,7 @@ sub new {
     my %self = @_;
     my $self = \%self;
     bless $self, $pkg;
-    die qq{'pre' parameter required!\n} if not defined $self->{preplan};
+    die qq{'preplan' parameter required!\n} if not defined $self->{preplan};
 
     # set to undef to disable preprocessing
     if ( not exists $self->{preprocess} ) {
@@ -724,6 +724,21 @@ convenience, but one all the same.
 
 =back
 
+=item C<cachedir>
+
+Accessor for obtaining the value of the cache directory, either the default
+value or as set via C<new>.
+
+=item C<checksum>
+
+Accessor for obtaining the MD5 checksum of the PRE, specified by using the
+C<preplan> parameter via C<new>.
+
+=item C<cachefile>
+
+Acessor for getting the full path of the cache file associated with the PRE;
+this file may or may not exist.
+
 =item C<init_plan>
 
 This takes the PRE provided in the C<new> constructure, and runs through
@@ -749,6 +764,16 @@ steps being implemented.
     my $sq = Sub::Genius->new(preplan => $preplan);
     
     $sq->init_plan;
+
+B<Note:> I<Caching>
+
+It is during this call that the DFA associated with the I<preplan> PRE is
+I<compiled> into a DFA. That also means, this is where cached DFAs are
+read in; or if not yet cached, are saved after the process to convert the
+PRE to a DFA.
+
+As is mentioned several times, caching may be disabled by passing the parameter,
+C<< cachedir => undef >> in the C<new> constructor.
 
 =item C<run_once>
 
@@ -936,30 +961,100 @@ L<stubby> and L<fash>.
 
 L<FLAT> is very useful for fairly complex semantics, but the number of
 FA states grows extremely large as it moves from the non-deterministic
-realm to to the deterministic. 
+realm to to the deterministic.
 
 What that means in most cases, is that the more non-deterministic the PRE
-(e.g., the more C<shuffles> or C<&>'s), the longer it will take for the final
-DFA to be created. It would not be hard to overwhelm a system's memory
-with a PRE like the one suggested above,
+(e.g., the more C<shuffles> or C<&>'s), the longer it will take for the
+final DFA to be created. It would not be hard to overwhelm a system's
+memory with a PRE like the one suggested above,
 
     my $preplan = join(q{&},(a..z));
 
-This suggests all 26 letter combinations of all of the lower case letters of
-the alphabet (26! such combinations, as noted above) must be accounted for
-in the final minimized DFA, which is really just a large graph.
+This suggests all 26 letter combinations of all of the lower case letters
+of the alphabet (26! such combinations, as noted above) must be accounted
+for in the final minimized DFA, which is really just a large graph.
 
-The algorithms inplemented in L<FLAT> to convert from a PRE to a PFA (equivalent
-to a PetriNet) to a NFA to a DFA, and finally to a minimized DFA are the basic'
-ones discussed in any basic CS text book on automata, e.g., [5].
+The algorithms inplemented in L<FLAT> to convert from a PRE to a PFA
+(equivalent to a PetriNet) to a NFA to a DFA, and finally to a minimized
+DFA are the basic' ones discussed in any basic CS text book on automata,
+e.g., [5].
 
-=head2 Caching
+=head1 CACHING 
 
-The practicality of converting the PRE to a DFA suitable for generating valid
-execution orders is reached relatively quickly as more C<shuffle>s are added.
-For this reason, C<init_plan> looks for a cache file. If available, it's loaded
-saving potentally long start up times.
+The practicality of converting the PRE to a DFA suitable for generating
+valid execution orders is reached relatively quickly as more C<shuffle>s
+are added.  For this reason, C<init_plan> looks for a cache file. If
+available, it's loaded saving potentally long start up times.
 
+=head2 How Caching Works in C<Sub::Genius>
+
+Caching of the PRE is done after it has been I<compiled> into a DFA, which
+is called most directly via C<init_plan>. Unless the constructor has been
+created specifically turning it off via C<cachedir=>undef>, L<Storable>'s
+C<store> method is used to save it to the C<cachedir>. Internally, a
+C<md5> checksum is generated using L<Digest::MD5>'s C<md5_hex> method on
+the PRE after it's been I<preprocessed>. If the constructor is passed the
+flag to disable preprocessing, the checksum is generated in consideration
+of the PRE as specified using the C<preplan> parameter of C<new>.
+
+The lifecycle of caching, assuming default behavior is:
+
+=over 4
+
+=item constructor used to create instance with C<preplan> specified
+
+=item C<preplan> is I<preprocessed> to strip comments, blank spaces, and
+put square braces around all I<words>
+
+=item a checksum is generated using the value of post-preprocessed C<preplan>
+field
+
+=item calling C<init_plan> first looks for a cached file representing the
+DFA's checksum; if found it C<retrieve>s this file and this is the DFA moving
+forward
+
+=item if no such cached DFA exists, then internally the L<FLAT> enabled process
+to convert a PRE to a DFA is invoked; this is the step that has the potential
+for taking an inordinate amount of time
+
+=item once the DFA is generated, it is saved in C<cachedir> with the file name
+that matches the value of C<checksum>.
+
+=back
+
+=head2 Final Notes on Caching
+
+Caching for C<compiled> things, in lieu of better performance for
+necessarily complext algorithms, seems an acceptible cheat. Well known
+examples of this included L<Inline> (e.g., the C<_Inline> default directory)
+and the caching of rendered template by L<Template> Toolkit.
+
+This could be couched as a I<benefit>, but the truth is that it would be
+better if caching DFAs was not necessary. In the case for very complex
+or I<highly> shuffled PREs, it is necessary to precompile - and maybe
+even on much more performant machines than the one the code using them
+will run on. It may just be the nature of taming this beast.
+
+This also suggests I<best practices> if this module, or the approach it
+purports, ever reaches some degree of interesting. It is reasonable to
+imagine the rendering of I<frozen> DFAs (the I<compiled> form of PREs
+used to generate valid execution plans) is like a compilation step, just
+like building XS modules necessarily requires the compiling of code during
+module installation. It could also be, that assuming C<store>'d files are
+platform independent, that a repository of these can be mainted somewhere
+like in a git repo for distribution. Indeed, there could be entire modules
+on CPAN that provide libraries to DFAs that ensure sequential consistency
+for a large variety of applications.
+
+Until this is proven in the wild, it's just speculation. For now, it's
+sufficient to state that caching is a necessary part of this approach
+and may be for some time. The best we can do is provide a convenient
+way to handle it, and it's taking a hint from modules like C<Inline>
+that we start off on the right footing.
+
+As a final note, caching I<can> be disabled in the constructure,
+
+    my $sq = Sub::Genius->new( preplan => $preplan, cachedir => undef );
 
 =head1 SEE ALSO
 
@@ -989,7 +1084,7 @@ Same terms as perl itself.
 
 =head1 AUTHOR
 
-OODLER 577 <oodler@cpan.org>
+OODLER 577 E<lt>oodler@cpan.orgE<gt>
 
 =head1 ACKNOWLEDGEMENTS
 
