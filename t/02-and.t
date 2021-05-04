@@ -7,7 +7,7 @@ use_ok q{Sub::Genius::Util};
 my $sq = Sub::Genius::Util->new(preplan => q{A&B&C} );
 
 isa_ok $sq, q{Sub::Genius::Util};
-can_ok( $sq, qw/subs2perl plan2noSS/ );
+can_ok( $sq, qw/subs2perl plan2nodeps/ );
 
 # sub class of Sub::Genius, aktually
 isa_ok $sq, q{Sub::Genius};

@@ -33,6 +33,7 @@ Changes for Sub::Genius
 
 0.08         2021-04-25 14:30:51-05:08 America/New_York
              - cleaned up and reorganized documentation
+             - Note: should have been released as a TRIAL
 
 0.09         2021-04-25 14:30:51-05:09 America/New_York
              - added caching (on by default)
