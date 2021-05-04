@@ -42,3 +42,5 @@ Changes for Sub::Genius
              - removed mindfa option; if this is desired
                ->dfa can be manipulated directly,
                $sq->dfa($sq->dfa->min_dfa->trim_sinks)
+             - added static code gen to stubby
+             - cleaned up stubby POD
