@@ -200,6 +200,12 @@ sub plan2nodeps {
     return $perl;
 }
 
+sub precache {
+    my ( $self, %opts ) = @_;
+    my $sq = $self->new(%opts)->init_plan;
+    return $sq->cachefile;
+}
+
 1;
 
 =head1 NAME

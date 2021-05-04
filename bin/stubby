@@ -7,60 +7,108 @@ use Getopt::Long      ();
 
 my $VERSION = 1.0;
 
+use constant {
+    EXIT_SUCCESS => 0,
+    EXIT_ERROR   => 1,
+};
+
 require Data::Dumper;
 
 # maybe switch to App::Cmd later for sub commands,
 # but it's options processing is super tard
 my $subcommand = shift @ARGV;
 
-sub usage {
-    die qq{USAGE:\n   stubby init [-r|--run [once|any|all|nodeps] -s|--subroutines "sub1 sub2 sub3 ..." > my-script.pl.\n};
-}
-
-# enforce subcommand
-if ( not $subcommand or $subcommand ne q{init} ) {
-    warn qq{'init' subcommand required\n};
-    usage;
-}
-
-my %opts = ( R => q{once} );    # default is 'once', as in C<Sub::Genius::run_once>
-Getopt::Long::GetOptions(
-    \%opts,                     # container for all processed options
-    q/p|preplan=s/,             # specify preplan (PRE), required for '--run nodeps'
-    q/R|run=s/,                 # specify invocation method: once, any, all, none
-    q/s|subroutines=s/,         # specify name of subroutines; NOT a PRE!
-);
-
-# option validation
-
-if ( not grep { /$opts{R}/ } (qw/once any all nodeps/) ) {
-    warn qq{'--run' is required and must be one of 4 values: 'once', 'any', 'all', or 'nodeps'\n};
-    usage;
-}
-
-if ( not defined $opts{s} and not defined $opts{p} ) {
-    warn qq{'--subroutines' is required, two or more subroutine names is recommended\n};
-    usage;
-}
-
-if ( $opts{s} and  $opts{s} !~ m/^[\w ]+$/  and not defined $opts{p} ) {
-    warn qq{'--subroutines' only permits words and spaces, seems you supplied a PRE?\n};
-    usage;
-}
-
-# Code generation support is limited at this time
-my $dispatch = {
-    once   => sub { print Sub::Genius::Util->subs2perl( q{subs} => [ split( /[\s&|,]/, $opts{s} ) ], q{with-run} => $opts{R} ) },
-    any    => sub { print Sub::Genius::Util->subs2perl( q{subs} => [ split( /[\s&|,]/, $opts{s} ) ], q{with-run} => $opts{R} ) },
-    all    => sub { print Sub::Genius::Util->subs2perl( q{subs} => [ split( /[\s&|,]/, $opts{s} ) ], q{with-run} => $opts{R} ) },
-    nodeps => sub {
-        die qq{'--run nodeps' requires '--preplan = "An & Actualy & PRE"'\n} if not defined $opts{p};
-        print Sub::Genius::Util->plan2nodeps(preplan => $opts{p});
-    },
+my $subcommands = {
+    help  => \&run_helf,
+    init  => \&run_init,
+    cache => \&run_cache,
 };
 
-if (exists $dispatch->{$opts{R}} and q{CODE} eq ref $dispatch->{$opts{R}}) {
-  $dispatch->{$opts{R}}->();
+my $usages = {
+    help  => \&usage_helf,
+    init  => \&usage_init,
+    cache => \&usage_cache,
+};
+
+# enforce subcommand
+if ( not $subcommand or not exists $subcommands->{$subcommand} ) {
+    warn qq{\n(fatal) stubby requires valid subcommand ...\n\n};
+    print_usage($usages);
+    exit EXIT_ERROR;
+}
+
+exit $subcommands->{$subcommand}->( \@ARGV );
+
+sub print_usage {
+    my $usages = shift;
+    print qq{All commands:\n};
+
+    # force "help" to be first
+    foreach my $usage ( ( qw/help/, grep { !m/help/ } sort keys %$usages ) ) {
+        my $use = $usages->{$usage}->();
+        print qq{'$usage'\n};
+        print qq{\t$use\n};
+    }
+    print qq{\n};
+}
+
+sub usage_helf {
+    return qq{stubby help};
+}
+
+sub usage_init {
+    return qq{stubby init [-r|--run [once|any|all|nodeps] -s|--subroutines "sub1 sub2 sub3 ..." > my-script.pl};
+}
+
+sub usage_cache {
+    return qq{stubby cache [-d path/to/cachedir [-f path/to/preplan.dat] | [-p|--preplan "p&r&e&plan"]};
+}
+
+sub run_helf {
+    my $has_perldoc = system(qw/which perdoc/);
+    if ( $has_perldoc > EXIT_SUCCESS ) {
+        print qq{(fatal) 'perldoc' utility required, please install & resubmit your request...\n};
+        return $has_perldoc;
+    }
+    return system( qw/perldoc/, $0 );
+}
+
+sub run_init {
+    my $argv = shift;
+    my %opts = ( R => q{once} );                    # default is 'once', as in C<Sub::Genius::run_once>
+    my $gol  = Getopt::Long::GetOptionsFromArray(
+        $argv,
+        \%opts,                # container for all processed options
+        q/p|preplan=s/,        # define PRE (currently for -x nodeps, only)
+        q/s|subroutines=s/,    # specify name of subroutines; NOT a PRE!
+        q/x|run=s/,            # specify invocation method: once, any, all, once
+    );
+
+    # no %opts checking here, relying on exceptions from Sub::Genius::Util
+    if ( grep { /$opts{x}/ } (qw/once any all/) ) {
+        print Sub::Genius::Util->subs2perl( q{subs} => [ split( /[\s&|,]/, $opts{s} ) ], q{with-run} => $opts{x} );
+    }
+    elsif ( grep { /$opts{x}/ } (qw/nodeps/) ) {
+        print Sub::Genius::Util->plan2nodeps( preplan => $opts{p} );
+    }
+    return EXIT_SUCCESS;
+}
+
+sub run_cache {
+    my $argv = shift;
+    my %opts = ();
+    my $gol  = Getopt::Long::GetOptionsFromArray(
+        $argv,
+        \%opts,           # container for all processed options
+        q/d|cachedir=s/,  # specify cachedir, defaults to Sub:Genius' default
+        q/f|file=s/,      # specify file containing PRE
+        q/o=s/,           # specify Storable file for DFA being cached
+        q/p|preplan=s/,   # define PRE (required if -f is not specified
+    );
+
+    my $cachefile = Sub::Genius::Util->precache( preplan => $opts{p}, cacheddir => $opts{d}, file => $opts{f} );
+    print qq{$cachefile\n};
+    return EXIT_SUCCESS;
 }
 
 exit;
