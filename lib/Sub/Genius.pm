@@ -9,7 +9,7 @@ use Digest::MD5 ();
 use Storable    ();
 use Cwd         ();
 
-our $VERSION = q{0.10};
+our $VERSION = q{0.11};
 
 # constructor
 sub new {

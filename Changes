@@ -55,3 +55,7 @@ Changes for Sub::Genius
                which is another potential approach to solving the fast
                growing complexity of converting PREs to DFAs
              - added some more tests 
+
+0.11         2021-04-25 14:30:51-05:11 America/New_York
+             - pinned to FLAT 1.0.4
+             - mark end of "TRIAL" releases
