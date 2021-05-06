@@ -2,14 +2,13 @@ package Sub::Genius;
 
 use strict;
 use warnings;
-use feature 'state';
 use FLAT::PFA;
 use FLAT::Regex::WithExtraOps;
 use Digest::MD5 ();
 use Storable    ();
 use Cwd         ();
 
-our $VERSION = q{0.11};
+our $VERSION = q{0.12};
 
 # constructor
 sub new {
