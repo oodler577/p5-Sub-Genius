@@ -5,7 +5,7 @@ use Test::Exception;
 
 use_ok q{Sub::Genius};
 
-my $sq = Sub::Genius->new(preplan => q{A&B&C} );
+my $sq = Sub::Genius->new( preplan => q{A&B&C} );
 
 isa_ok $sq, q{Sub::Genius};
 
@@ -17,7 +17,7 @@ $sq->init_plan;
 
 is( ref $sq->dfa, q{FLAT::DFA}, q{DFA confirmed} );
 
-$sq->init_plan(reset => 1);
+$sq->init_plan( reset => 1 );
 
 is( ref $sq->dfa, q{FLAT::DFA}, q{DFA confirmed} );
 
@@ -29,7 +29,7 @@ while ( my $plan = $sq->next() ) {
 
 is $sq->next(), undef, q{no plan detected, expected};
 
-$sq = Sub::Genius->new(preplan => q{D&E&F}, preprocess => 0 );
+$sq = Sub::Genius->new( preplan => q{D&E&F}, preprocess => 0 );
 
 is $sq->preplan, q{D&E&F}, q{PRE retained};
 
@@ -39,7 +39,7 @@ $sq->init_plan;
 
 is( ref $sq->dfa, q{FLAT::DFA}, q{DFA confirmed} );
 
-$sq->init_plan(reset => 1);
+$sq->init_plan( reset => 1 );
 
 is( ref $sq->dfa, q{FLAT::DFA}, q{min DFA confirmed} );
 

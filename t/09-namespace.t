@@ -10,45 +10,47 @@ use_ok q{Sub::Genius};
 # the same for any ordering of execution
 
 my $pre = q{
-begin
+[begin]
 (
   J &
     A &
       P &
         H
 )
-end
+[end]
 };
 
-# Load PRE describing concurrent semantics
-my $sq = Sub::Genius->new( preplan => $pre );
-
-# 'compile' PRE
-$sq->init_plan;
-
 my $GLOBAL = {};
-while ( $sq->next ) {
 
-    # run loop-ish
-    my $final_scope = $sq->run_once(
-        scope => {
-            japh    => [ qw/just Another perl/, q{Hacker,} ],
-            curr    => 0,
-            contrib => [],
-        }
-    );
+note q{Testing namespace feature of 'run_once', e.g., 'ns => My::JAPH'};
 
-    my $expected_final_scope = {
-        'japh'    => [ 'just', 'Another', 'perl', 'Hacker,' ],
-        'curr'    => 4,
-        'contrib' => [ 'just', 'Another', 'perl', 'Hacker,' ]
-    };
+# Load PRE describing concurrent semantics
+my $final_scope = Sub::Genius->new( preplan => $pre, preprocess => 0 )->run_any(
+    ns    => q{My::JAPH},
+    scope => {
+        japh    => [ qw/just Another perl/, q{Hacker,} ],
+        curr    => 0,
+        contrib => [],
+    },
+);
 
-    is_deeply $final_scope->{japh}, $expected_final_scope->{japh}, q{final scope returned after execution properly};
-    is_deeply $final_scope->{curr}, $expected_final_scope->{curr}, q{final scope returned after execution properly};
-    $GLOBAL = {};
-}
+my $expected_final_scope = {
+    'japh'    => [ 'just', 'Another', 'perl', 'Hacker,' ],
+    'curr'    => 4,
+    'contrib' => [ 'just', 'Another', 'perl', 'Hacker,' ]
+};
 
+is_deeply $final_scope, $expected_final_scope, q{final scope returned after execution properly};
+
+done_testing();
+
+package My::JAPH;
+
+#                                     #
+## S T A T E  S U B S  P O N S O R S ##
+#                                     #
+
+# noop
 sub begin {
     my $scope = shift;
     state $persist = {};    # gives subroutine memory, also 'private'
@@ -90,7 +92,6 @@ sub H {
     my $private = {};                                                       # reset after each call
     push @{ $scope->{contrib} }, $persist->{akctual};
     return $scope;
-    return;
 }
 
 sub P {
@@ -112,7 +113,6 @@ sub end {
     return $scope;
 }
 
-done_testing();
-exit;
+1;
 
-__END__
+exit;

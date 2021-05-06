@@ -7,29 +7,29 @@ use parent q{Sub::Genius};
 
 # dispatch for invocation method
 my $invocation = {
-   any => \&_as_any,  # invoke plan with run_any
-   all => \&_as_all,  # invoke plan with loop using `next` + run_once
-  once => \&_as_once, # invoke plan without dependency on Sub::Genius
+    any  => \&_as_any,     # invoke plan with run_any
+    all  => \&_as_all,     # invoke plan with loop using `next` + run_once
+    once => \&_as_once,    # invoke plan without dependency on Sub::Genius
 };
 
 sub _as_once {
-  return qq{
+    return qq{
  ## initialize Sub::Genius (caching 'on' by default)
- my \$sq = Sub::Genius->new(preplan => qq{\$pre} );
+ my \$sq = Sub::Genius->new(preplan => qq{\$preplan} );
  \$sq->init_plan;
  my \$final_scope = \$sq->run_once( scope => {}, ns => q{main}, verbose => 1);};
 }
 
 sub _as_any {
-  return qq{
+    return qq{
  ## initialize Sub::Genius (caching 'on' by default)
- my \$final_state = Sub::Genius->new(preplan => qq{\$pre})->run_any( scope => {}, ns => q{main}, verbose => 1);};
+ my \$final_state = Sub::Genius->new(preplan => qq{\$preplan})->run_any( scope => {}, ns => q{main}, verbose => 1);};
 }
 
 sub _as_all {
-  return qq/
+    return qq/
  ## initialize Sub::Genius (caching 'on' by default)
- my \$sq = Sub::Genius->new(preplan => qq{\$pre} );
+ my \$sq = Sub::Genius->new(preplan => qq{\$preplan} );
  \$sq->init_plan;
  do {
    my \$final_scope = \$sq->run_once( scope => {}, ns => q{main}, verbose => 1);
@@ -40,29 +40,29 @@ sub _as_all {
 
 sub subs2perl {
     my ( $self, %opts ) = @_;
-  
+
     my @subs       = ();
     my @pre_tokens = ();
     my @perlsubpod = ();
 
     # make sure subs are not repeated
     my %uniq = ();
-    foreach my $sub (@{$opts{subs}}) {
-      ++$uniq{$sub};
-    } 
+    foreach my $sub ( @{ $opts{subs} } ) {
+        ++$uniq{$sub};
+    }
 
   SUBS:
-    foreach my $sub (keys %uniq) {
-      next SUBS if $sub =~ m/^ *$/;
-      push @subs, $sub;
-      push @pre_tokens, $sub;
-      push @perlsubpod, qq{ =item * C<$sub>\n};
-    } 
+    foreach my $sub ( keys %uniq ) {
+        next SUBS if $sub =~ m/^ *$/;
+        push @subs,       $sub;
+        push @pre_tokens, $sub;
+        push @perlsubpod, qq{ =item * C<$sub>\n};
+    }
 
-    my $perlsub    = $self->_dump_subs(\@subs);
-    my $perlpre    = join(qq{\n}, @pre_tokens);
-    my $perlsubpod = join(qq{\n}, @perlsubpod);
-    my $invokemeth = $invocation->{$opts{q{with-run}}}->();
+    my $perlsub    = $self->_dump_subs( \@subs );
+    my $perlpre    = join( qq{\n}, @pre_tokens );
+    my $perlsubpod = join( qq{\n}, @perlsubpod );
+    my $invokemeth = $invocation->{ $opts{q{with-run}} }->();
 
     my $perl = qq{#!/usr/bin/env perl
  use strict;
@@ -71,11 +71,11 @@ sub subs2perl {
 
  use Sub::Genius ();
 
- # vvv---- PRE - #xxxx NOT COMPLETE, NEED TO MANUALLY ADD PARALLEL SEMANTIC
- my \$pre = q{
-   $perlpre
+ my \$preplan = q{
+ # TODO - add concurrent semantics (e.g., '&', etc)
+ # [note: this comment is ignored by S::G]
+$perlpre
  };
- # ^^^---- PRE - #xxxx NOT COMPLETE, NEED TO MANUALLY ADD PARALLEL SEMANTIC
 
  ## intialize hash ref as container for global memory
  my \$GLOBAL = {};
@@ -181,7 +181,7 @@ sub plan2nodeps {
 
     # init (compiles to DFA)
     $sq->init_plan;
- 
+
     # gets serialized execution plan
     my @subs = split / /, $sq->next;
 
@@ -193,7 +193,7 @@ sub plan2nodeps {
     # get uniq list of subs for sub stub generation
     my %uniq = map { $_ => 1 } @subs;
 
-    $perl .= $self->_dump_subs( [keys %uniq] );
+    $perl .= $self->_dump_subs( [ keys %uniq ] );
 
     $perl =~ s/^ //gm;
 
@@ -202,8 +202,21 @@ sub plan2nodeps {
 
 sub precache {
     my ( $self, %opts ) = @_;
+
+    die qq{'preplan' and 'prefile' are mutually exclusive\n} if ( $opts{preplan} and $opts{prefile} );
+
+    # clean %opts, otherwise Sub::Genius will disable caching
+    # the others are safely ignored
+    delete $opts{cachedir} if not defined $opts{cachedir};
+
+    if ( defined $opts{prefile} ) {
+        local $/ = undef;
+        open my $ph, q{<}, $opts{prefile} || die $!;
+        $opts{preplan} = <$ph>;
+        close $ph;
+    }
     my $sq = $self->new(%opts)->init_plan;
-    return $sq->cachefile;
+    return $sq;
 }
 
 1;
@@ -215,7 +228,7 @@ Sub::Genius::Util - Helper module for dumping Perl code
 =head1 SYNOPSIS
 
 This is implemented for use with L<stubby>, please look at that script
-to see how it's used.
+to see how it's used. This module is lightly documented, to say the least.
 
 =head1 DESCRIPTION
 
@@ -270,6 +283,13 @@ by providing explicit calls, that also pass along a C<$scope> variable.
     $scope    = H($scope);
     $scope    = C($scope);
     $scope    = A($scope);
+
+C<precache>
+
+Accepts various parameters for invoking L<Sub::Genius>'s caching feature
+and options. Returns a necessarily initialized Sub::Genius instance. Since
+this uses Sub::Genius' native handling of caching, the PRE will not be
+repeatedly cached unless forced. 
 
 =head1 SEE ALSO
 

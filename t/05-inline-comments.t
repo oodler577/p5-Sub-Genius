@@ -23,7 +23,7 @@ end             # this is the end
 };
 
 # Load PRE describing concurrent semantics
-my $sq = Sub::Genius->new(preplan => $preplan );
+my $sq = Sub::Genius->new( preplan => $preplan );
 
 # 'compile' PRE
 $sq->init_plan;

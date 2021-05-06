@@ -4,7 +4,7 @@ use Test::More;
 
 use_ok q{Sub::Genius::Util};
 
-my $sq = Sub::Genius::Util->new(preplan => q{A&B&C} );
+my $sq = Sub::Genius::Util->new( preplan => q{A&B&C} );
 
 isa_ok $sq, q{Sub::Genius::Util};
 can_ok( $sq, qw/subs2perl plan2nodeps/ );

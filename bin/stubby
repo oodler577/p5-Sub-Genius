@@ -19,15 +19,15 @@ require Data::Dumper;
 my $subcommand = shift @ARGV;
 
 my $subcommands = {
-    help  => \&run_helf,
-    init  => \&run_init,
-    cache => \&run_cache,
+    help     => \&run_helf,
+    init     => \&run_init,
+    precache => \&run_precache,
 };
 
 my $usages = {
-    help  => \&usage_helf,
-    init  => \&usage_init,
-    cache => \&usage_cache,
+    help     => \&usage_helf,
+    init     => \&usage_init,
+    precache => \&usage_precache,
 };
 
 # enforce subcommand
@@ -60,8 +60,8 @@ sub usage_init {
     return qq{stubby init [-r|--run [once|any|all|nodeps] -s|--subroutines "sub1 sub2 sub3 ..." > my-script.pl};
 }
 
-sub usage_cache {
-    return qq{stubby cache [-d path/to/cachedir [-f path/to/preplan.dat] | [-p|--preplan "p&r&e&plan"]};
+sub usage_precache {
+    return qq{stubby precache [-d path/to/cachedir [-f path/to/preplan.preplan] | [-p|--preplan "p&r&e&plan"]};
 }
 
 sub run_helf {
@@ -89,25 +89,42 @@ sub run_init {
         print Sub::Genius::Util->subs2perl( q{subs} => [ split( /[\s&|,]/, $opts{s} ) ], q{with-run} => $opts{x} );
     }
     elsif ( grep { /$opts{x}/ } (qw/nodeps/) ) {
-        print Sub::Genius::Util->plan2nodeps( preplan => $opts{p} );
+
+        # options validation is done in S::G::Util
+        # this method unrolls the preplan into series of sequentially
+        # consistent subroutine calls, eliminating the need for Sub::Genius
+        # as a dependency in the final code
+        print Sub::Genius::Util->plan2nodeps( preplan => $opts{p}, prefile => $opts{f}, cachedir => $opts{d} );
     }
     return EXIT_SUCCESS;
 }
 
-sub run_cache {
+sub run_precache {
     my $argv = shift;
-    my %opts = ();
+    my %opts = ( d => undef );
     my $gol  = Getopt::Long::GetOptionsFromArray(
         $argv,
-        \%opts,           # container for all processed options
-        q/d|cachedir=s/,  # specify cachedir, defaults to Sub:Genius' default
-        q/f|file=s/,      # specify file containing PRE
-        q/o=s/,           # specify Storable file for DFA being cached
-        q/p|preplan=s/,   # define PRE (required if -f is not specified
+        \%opts,             # container for all processed options
+        q/d|cachedir=s/,    # specify cachedir, defaults to Sub:Genius' default
+        q/f|file=s/,        # specify file containing PRE
+        q/force/,           # forces re-caching (sends 'reset=>1' to 'init_plan')
+        q/o=s/,             # specify Storable file for DFA being cached
+        q/p|preplan=s/,     # define PRE (required if -f is not specified
     );
 
-    my $cachefile = Sub::Genius::Util->precache( preplan => $opts{p}, cacheddir => $opts{d}, file => $opts{f} );
-    print qq{$cachefile\n};
+    # be kind, create cachedir but let user know
+    if ( defined $opts{d} and not -d $opts{d} ) {
+        mkdir $opts{d}, 0700
+          and print qq{(info) Created '$opts{d}\n};
+    }
+
+    my $sq = Sub::Genius::Util->precache(
+        preplan  => $opts{p},
+        cachedir => $opts{d},
+        prefile  => $opts{f},
+        reset    => $opts{force},
+    );
+    print $sq->cachefile . qq{\n};
     return EXIT_SUCCESS;
 }
 
@@ -118,88 +135,138 @@ __END__
 
 stubby - commandline tool for dumping stub Perl programs sequentialized using L<Sub::Genius>.
 
-I<EXPERIMENTAL>, subject to wild swings in options and behaviors.
-
 =head1 SYNOPSIS
 
-    $ stubby init [--run [once|any|all|nodeps]] [-s|--subroutines = "sub1 sub2 sub3 ..."] [-p|--preplan = "an & actual (PRE) ..."] 
+=head2 Generate code that is dependent on L<Sub::Genius>:
 
-    $ stubby precache [-f preplan.dat|--preplan = 'PRE...'] [-d path/to/cachedir]  # NOT YET IMPLEMENTED
+Example redirects to a file, C<./spawn-combine.pl>
 
-Example,
+    $ stubby init --run once -s "just a list of subroutines" > ./spawn-combine.pl
 
-with C<use Sub::Genius ();>:
- 
-    $ stubby init --run once   -s "init spawn threadsA criticalsectA threadsB criticalsectB combine" > ./spawn-combine.pl
+=head2 Generate code that is I<not> dependent on L<Sub::Genius>:
 
-without C<Sub::Genius>:
+Example redirects to a file, C<./spawn-combine.pl>
 
-    $ stubby init --run nodeps -p "init ( threadA & threadB & threadC ) criticalSection ( threadA & threadB & threadC ) finalize" > ./spawn-combine.pl
+    $ stubby init --run nodeps -p "init ( subA & subB ) middle ( subA & suB ) fin" > ./spawn-combine.pl
 
-cache only (for precompiling DFAs) B<NOT YET IMPLEMENTED>
+Note: while this necessarily causes a PRE to be cached, the code
+generated also doesn't C<use Sub::Genius ();>, so the caching effect on
+this subcommand is only as useful for making this command faster. See
+C<precache> subcommand below for a more useful approach for caching.
 
-    $ stubby precache -p "init ( threadA & threadB & threadC ) criticalSection ( threadA & threadB & threadC ) finalize" # NOT YET IMPLEMENTED
+=head2 Pre-cache PREs (may be reasonably called, a I<compile> step):
 
-    $ stubby precache -f ./my-preplan.dat -d put/in/here # NOT YET IMPLEMENTED
+C<precache> outputs the absolute path to the cache file on completion.
+
+    $ CACHEFILE=$(stubby precache -p "init (subA & subB ) middle (subC & subD) fin")
+    $ echo Cache file is ${CACHEFILE}
+
+    $ CACHEFILE=$(stubby precache -f ./my-preplan.preplan -d put/in/here)
+    $ echo Cache file is ${CACHEFILE}
+
+Note: C<./my-preplan.preplan> should generate the same checksum (and cache)
+as the PRE specified using C<-p> in the first example.
+
+    init
+      (subA & subB )
+    middle
+      (subC & subD)
+    fin
+
+C<Sub::Genius> tries very hard to generate a consistent representation
+of the PREs, basically by minifying them.
 
 =head1 DESCRIPTION
 
-Commandline tool for generating boilerplate for use with L<Sub::Genius>.
+General commandline tool for doing usefuly things while developing or
+distributing applications that use L<Sub::Genius>.
 
-Leverages the caching effects of L<Sub::Genius> (see that POD for more information).
+C<init> -  generates boilerplate Perl to help start a script, module,
+or project that is using C<Sub::Genius>.
 
-=head2 General Development Workflow
+C<precache> - provides a compiler-I<like> tool for precaching PREs
+that L<Sub::Genius> is able to use natively for skipping the potentially
+expensive step of convering a PRE (I<preplan>) to a DFA (the thing L<FLAT>
+uses to generate valid (i.e., I<sequentially consistent>) execution plans.
 
-Most will want to use this to start their Perl script or module, the workflow over
-the lifetime of the program might look like this:
+=head1 OPTIONS FOR SUBCOMMAND C<init>
 
-=over 4
-
-=item * Dump program using C<stubby>.
-
-=item * Annotate PRE (C<$pre> in generated code) to achieve concurrent semantics (see L<Sub::Genius> for more info).
-
-=item * Implement subroutine bodies that exist, albeit empty of anything meaningful.
-
-=item * C<...>
-
-=item * Profit!
-
-=item * Maintain as any other code in your arsenal.
-
-=back
-
-=head1 OPTIONS
+The C<init> subcommand does not convert a PRE to a DFA, it simply takes a
+space delimited list of subroutine names, that are then used to generate
+minimal subroutine stubs. It is then a starting point for the developer
+of the code to manually edit the PRE (contained as a scalar string,
+C<$preplan>) and implement the bodies of the subroutines.
 
 =over 4
 
-=item C<init>
-
-Subcommand, currently only one supported.
-
-=item C<-R|--run>
+=item C<-x|--run>
 
 Choose invocation method to use in the code. The default is C<once>.
 
 Options include:
 
-C<once> - generates code that invokes C<Sub::Genius::run_once>; requires C<-s|--subroutine>
+C<once> - generates code that invokes C<Sub::Genius::run_once>.
 
-C<any>  - generates code that invokes C<Sub::Genius::run_any>; requires C<-s|--subroutine>
+Requires C<-s|--subroutines>.
 
-C<all>  - generates code that invokes C<Sub::Genius::run_once>, in a C<do { ... } while ()> loop; requires C<-s|--subroutine>
+C<any>  - generates code that invokes C<Sub::Genius::run_any>.
 
-C<nodeps> - generates code that is free of any dependencies, including C<Sub::Genius>; requires C<-p|--preplan>
+Requires C<-s|--subroutines>.
+
+C<all>  - generates code that invokes C<Sub::Genius::run_once>, in a C<do { ... } while ()> loop.
+
+Requires C<-s|--subroutines>.
+
+C<nodeps> - generates code that is free of any dependencies, including C<Sub::Genius>.
+
+Requires C<-p|--preplan>.
 
 =item C<-s|--subroutines>
 
-Specify a space delimited list of subroutine names to generate stubs and a unannotated PRE.
+Valid only for C<-x|--run>: C<once> (default), C<any>, and C<all>.
 
-Command fails if provided any values other than words and spaces (to prevent misinterpretation of PRE - may change).
+Specify a space delimited list of subroutine names to generate stubs and a
+unannotated PRE. It's I<just a list of subroutines>.
+
+Invalid for use with C<-x|--run nodeps>.
 
 =item C<-p|--preplan>
 
-An actual PRE, used with C<--run nodeps>.
+An actual PRE, used with C<-x|--run nodeps>, since this option necessarily
+generates subroutine calls that must necessarily be I<sequentially consistent>.
+
+=back
+
+=head1 OPTIONS FOR SUBCOMMAND C<precache>
+
+Effectively compiles a PRE using L<Sub::Genius>'s caching feature. As
+long as PREs that produced the same C<checksum> by C<Sub::Genius> and
+the C<cachedir> is the same, this allows one to prepare and distribute
+any number of pre-compiled DFAs. For sufficiently large or highly shuffled
+PREs, this can be leveraged to virtually eliminate the overhead associated
+with using C<Sub::Genius> in deployed code..
+
+=over 4
+
+=item C<-d|--cachedir> C<path/to/cachedir>
+
+Specifies the C<cachedir> to use for saving the cached DFAs. See
+L<Sub::Genius> for more information about caching. This option is passed
+to the C<cachedir> parameter of the constructor.
+
+=item C<-f|--prefile> C<path/to/PRE.preplan>
+
+Specify the PRE from a file. Mutually exclusive with C<-p|--preplan>.
+
+=item C<-p|--preplan> C<PRE>
+
+An the actual PRE that is to be cached. Mutually exclusive with
+C<-f|--prefile>, which can be used to specify a PRE in a text file.
+
+=item C<--force>
+
+Forces re-caching of previously cached DFAs, or at least for those matching
+the C<checksum> and are located in the same C<cachedir>.
 
 =back
 

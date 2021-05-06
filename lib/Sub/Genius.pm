@@ -9,7 +9,7 @@ use Digest::MD5 ();
 use Storable    ();
 use Cwd         ();
 
-our $VERSION = q{0.09};
+our $VERSION = q{0.10};
 
 # constructor
 sub new {
@@ -29,22 +29,24 @@ sub new {
         $self->cachedir( sprintf( qq{%s/%s}, Cwd::cwd(), q{_Sub::Genius} ) );
     }
 
-    # 'pre-process' plan
+    # 'pre-process' plan - this step maximizes the chance of capturing
+    # the same checksum for identical PREs that may just be formatted differently
     if ( $self->{preprocess} ) {
         $self->_trim;
         $self->_balkanize;
+        $self->_normalize;
     }
 
     # generates checksum based on post-preprocessed form
     $self->checksum( Digest::MD5::md5_hex( $self->preplan ) );
 
-    $self->pregex(FLAT::Regex::WithExtraOps->new( $self->preplan ));
+    $self->pregex( FLAT::Regex::WithExtraOps->new( $self->preplan ) );
     return $self;
 }
 
 sub cachefile {
     my $self = shift;
-    return ($self->cachedir) ? sprintf( qq{%s/%s}, $self->cachedir, $self->checksum ) : undef;
+    return ( $self->cachedir ) ? sprintf( qq{%s/%s}, $self->cachedir, $self->checksum ) : undef;
 }
 
 sub cachedir {
@@ -95,10 +97,22 @@ sub _balkanize {
     my @pre  = ();
   STRIP:
     foreach my $line ( split /\n/, $self->{preplan} ) {
-        $line =~ s/([a-zA-Z]+)/\[$1\]/g;
+
+        # supports strings with namespace delim, '::'
+        $line =~ s/([a-zA-Z:_]+)/\[$1\]/g;
         push @pre, $line;
     }
     $self->preplan( join qq{\n}, @pre );
+    return $self->preplan;
+}
+
+# currently, removes all spaces and newlines
+sub _normalize {
+    my $self     = shift;
+    my @pre      = split /\n/, $self->{preplan};
+    my $minified = join qq{}, @pre;
+    $minified =~ s/[\s]+//g;
+    $self->preplan($minified);
     return $self->preplan;
 }
 
@@ -113,9 +127,9 @@ sub preplan {
 
 # RO accessor for original
 sub pregex {
-    my ($self, $pregex)  = @_;
-    if ( $pregex ) {
-      $self->{pregex} = $pregex;
+    my ( $self, $pregex ) = @_;
+    if ($pregex) {
+        $self->{pregex} = $pregex;
     }
     return $self->{pregex};
 }
@@ -169,8 +183,8 @@ sub convert_pregex_to_dfa {
 
     # look for cached DFA
     if ( not $self->{reset} and $self->do_cache ) {
-        if (-e $self->cachefile) {
-            $self->dfa( Storable::retrieve($self->cachefile) );
+        if ( -e $self->cachefile ) {
+            $self->dfa( Storable::retrieve( $self->cachefile ) );
             return $self->dfa;
         }
     }
@@ -229,8 +243,17 @@ sub run_any {
 # * verbose => 0|1          # output runtime diagnostics
 sub run_once {
     my ( $self, %opts ) = @_;
-    $opts{ns}    //= q{main};
+
+    # initialize scope
     $opts{scope} //= {};
+
+    # appends '::' (no check if '::' is at the end to encourage a standard idiom)
+    if ( not defined $opts{ns} ) {
+        $opts{ns} = q{main::};
+    }
+    else {
+        $opts{ns} .= q{::};
+    }
 
     # only call interator if $self->{plan} has not yet been set
     $self->next if not $self->plan;
@@ -245,7 +268,7 @@ sub run_once {
         # main run loop - run once
         local $@;
         foreach my $sub (@seq) {
-            eval sprintf( qq{%s::%s(\$opts{scope});}, $opts{ns}, $sub );
+            eval sprintf( qq{%s%s(\$opts{scope});}, $opts{ns}, $sub );
             die $@ if $@;    # be nice and die for easier debuggering
         }
     }
@@ -372,8 +395,10 @@ is I<always> called last
 =back
 
 
-=head2 Meaningful Subroutine Names C<FLAT> allows single character symbols
-to be expressed with out any decorations;
+=head2 Meaningful Subroutine Names
+
+C<FLAT> allows single character symbols to be expressed with out any
+decorations;
 
     my $preplan = q{ s ( A (a b) C & ( D E F ) ) f };  # define plan
     my $sq = Sub::Genius->new(preplan => $preplan);    # convert plan
@@ -409,7 +434,6 @@ break it up in a more readable way:
         )
       fin
     };
-     
     # convert plan
     my $sq = Sub::Genius->new(preplan => $preplan);
 
@@ -444,7 +468,6 @@ For example,
         )
       fin           # Language 4 (L4) always runs last
     };
-    
     # convert plan
     my $sq = Sub::Genius->new(preplan => $preplan);
 
@@ -565,26 +588,31 @@ The following operator are available via C<FLAT>:
 
 =over 4
 
-=item I<concatentation> - there is no character for this, it is implied when
-two symbols are directly next to one another. E.g., C<a b c d>, which can also
-be expressed as C<abcd> or even C<[a][b][c][d]>.
+=item I<concatentation>: C<L1 L2>
+
+there is no character for this, it is implied when two symbols are directly
+next to one another. E.g., C<a b c d>, which can also be expressed as
+C<abcd> or even C<[a][b][c][d]>.
     
 =item examples,
 
       my $preplan = q{  a        b        c   };       # single char symbol
       my $preplan = q{symbol1 symbol2 symbol3 };       # multi-char symbol
 
-=item C<|> - I<union> - represented as a pipe, C<|>.
+=item C<|> - I<union>: C<L1 | L2>
 
 If it looks like an C<or>, that is because it is. E.g., C<a|b|c|d> means
-a valid string is, C<'a' or 'b' or 'c' or 'd'>.
+a valid string is, C<'a' or 'b' or 'c' or 'd'>. An I<or> is a union. In
+Regular Languages, it combines the valid set of strings from each I<or>'d
+language together. So the resulting language accepts all strings from I<L1>
+and all strings from I<L2>.
 
 =item examples,
 
       my $preplan = q{  a     |    b    |    c   };    # single char symbol
       my $preplan = q{symbol1 | symbol2 | symbol3};    # multi-car symbol
 
-=item C<&> - I<shuffle> - represented by the ampersand, C<&>.
+=item C<&> - I<shuffle>: C<L1 & L2>
 
 It is the addition of this operator, which is I<closed> under Regular
 Languages, that allows concurrency to be expressed. It is also generates
@@ -599,30 +627,38 @@ that leads to guaranteeing I<sequential consistency>.
       my $preplan = q{   a    &    b    &    c   };    # single char symbol
       my $preplan = q{symbol1 & symbol2 & symbol3};    # multi-car symbol
 
-=item C<*> - I<Kleene Star> - L<Sub::Genius> currently will die if one attempts to use
-this, but it is supported just fine by C<FLAT>. It's not supported in this module
-because it admits an I<infinite> language. That's not to say it's not useful for
-towards the aims of this module; but it's not currently understood by the merely
-I<sub-genius> module author(s) how to leverage this operator.
+=item C<*> - I<Kleene Star>: C<L1*>
+
+Creates an I<infinite> language; accepts either nothing, or an infinitely
+repeating concatentation of valid strings accepted originally by I<L1>.
+
+L<Sub::Genius> currently will die if one attempts to use this, but it is
+supported just fine by C<FLAT>. It's not supported in this module because
+it admits an I<infinite> language. That's not to say it's not useful for
+towards the aims of this module; but it's not currently understood by
+the merely I<sub-genius> module author(s) how to leverage this operator.
 
 =item B<E.g.>,
 
       my $preplan = q{    a     &     b*     &   c};  # single char symbol
       my $preplan = q{symbol1 & symbol2* & symbol3};  # multi-car symbol
 
-=item Note: the above PRE is not supported in L<Sub::Genius>, but may be in the future.
-One may tell C<Sub::Genius> to not C<die> when an infinite language is detected
-by passing the C<infinite> flag in the constructor; but currently the behavior
-exhibited by this module is considered I<undefined>:
+B<Note>: the above PRE is not supported in L<Sub::Genius>, but may be in
+the future.  One may tell C<Sub::Genius> to not C<die> when an infinite
+language is detected by passing the C<infinite> flag in the constructor; but
+currently the behavior exhibited by this module is considered I<undefined>:
 
 =item B<E.g.>,
 
-      my $preplan = q{    a     &     b*     &   c      };                    # single char symbol
-      my $sq = Sub::Genius->new(preplan => $preplan, 'allow-infinite' => 1);  # without 'allow-infinite'=>1, C<new> will fail here
+      # single char symbol
+      my $preplan = q{    a     &     b*     &   c      };
+      
+      # without 'allow-infinite'=>1, C<new> will fail here
+      my $sq = Sub::Genius->new(preplan => $preplan, 'allow-infinite' => 1);
 
 =back
 
-=head2 Precedence
+=head2 Precedence Using Parentheses
 
 C<(>, C<)>
 
@@ -816,29 +852,20 @@ returns:
 
 =item C<next>
 
-L<FLAT> provides some utility methods to pump FAs for valid strings;
-effectively, its the enumeration of paths that exist from an initial
-state to a final state. There is nothing magical here. The underlying
-method used to do this actually creates an interator.
-
-When C<next> is called the first time, an interator is created, and the
-first string is returned. There is currently no way to specify which
-string (or C<plan>) is returned first, which is why it is important that
-the concurrent semantics declared in the PRE are done in such a way that
-any valid string presented is considered to be sequentially consistent
-with the memory model used in the implementation of the subroutines. Perl
-provides the access to these memories by use of their lexical variable
-scoping (C<my>, C<local>) and the convenient way it allows one to make a
-subroutine maintain persistent memory (i.e., make it a coroutine) using
-the C<state> keyword. See more about C<PERL's UNIPROCESS MEMORY MODEL
-AND ITS EXECUTION ENVIRONMENT> in the section above of the same name.
+C<run_once> calls C<next> on C<$self> if it has not been run explicitly
+after C<init_plan>, but it will continue to call it if C<run_once> is
+run I<again>. This means that the C<preplan> will remain in place until
+C<next> is called once again.
 
 An example of iterating over all valid strings in a loop follows:
 
-    while (my $preplan = $sq->next_plan()) {
+    while (my $preplan = $sq->next) {
       print qq{Plan: $preplan\n};
       $sq->run_once;
     }
+
+Once the interator has generated I<all> valid strings, the loop above
+concludes.
 
 Note, in the above example, the concept of I<pipelining> is violated
 since the loop is running each plan ( with no guaranteed ordering ) in
@@ -855,9 +882,30 @@ be captured during each iteration for future processessing:
     # now do something with all the final scopes collected
     # by @all_final_scopes
 
-At this time C<Sub::Genius> only permits I<finite> languages, therefore
-there is always a finite list of accepted strings. The list may be long, but
-it's finite.
+There are also no deterministic guarantees of the ordering of valid
+strings (i.e., sequentially consistent execution plans).
+
+L<FLAT> provides some utility methods to pump FAs for valid strings;
+effectively, its the enumeration of paths that exist from an initial
+state to a final state. There is nothing magical here. The underlying
+method used to do this actually creates an interator.
+
+When C<next> is called the first time, an interator is created, and the
+first string is returned. There is currently no way to specify which
+string (or C<plan>) is returned first, which is why it is important that
+the concurrent semantics declared in the PRE are done in such a way that
+any valid string presented is considered to be sequentially consistent
+with the memory model used in the implementation of the subroutines.
+
+Perl provides the access to these memories by use of their lexical variable
+scoping (C<my>, C<local>) and the convenient way it allows one to make a
+subroutine maintain persistent memory (i.e., make it a coroutine) using
+the C<state> keyword. See more about C<PERL's UNIPROCESS MEMORY MODEL
+AND ITS EXECUTION ENVIRONMENT> in the section above of the same name.
+
+At this time C<Sub::Genius> only permits I<finite> languages by default,
+therefore there is always a finite list of accepted strings. The list
+may be long, but it's finite.
 
 As an example, the following admits a large number of orderings in a realtively
 compact DFA, in fact there are 26! (factorial) such valid orderings:
@@ -904,11 +952,203 @@ and C<run_once>. It presents a simple one line interfaces:
 
 =item C<plan_nein>
 
+I<DEPRECATED> - this was a not a well thought out idea and will be removed
+in the very near term, if it does not remove itself first. C<< >:E >>
+
 Using an existing reference instantiation of C<Sub::Genius>, resets
 everything about the instance. It's effectively link calling C<new> on the
 instance without having to recapture it.
 
 =back
+
+=head1 PERFORMANCE CONSIDERATIONS
+
+L<FLAT> is very useful for fairly complex semantics, but the number of
+FA states grows extremely large as it moves from the non-deterministic
+realm to to the deterministic.
+
+What that means in most cases, is that the more non-deterministic the PRE
+(e.g., the more C<shuffles> or C<&>'s), the longer it will take for the
+final DFA to be created. It would not be hard to overwhelm a system's
+memory with a PRE like the one suggested above,
+
+    my $preplan = join(q{&},(a..z));
+
+This suggests all 26 letter combinations of all of the lower case letters
+of the alphabet (26! such combinations, as noted above) must be accounted
+for in the final minimized DFA, which is really just a large graph.
+
+The algorithms inplemented in L<FLAT> to convert from a PRE to a PFA
+(equivalent to a PetriNet) to a NFA to a DFA, and finally to a minimized
+DFA are the basic' ones discussed in any basic CS text book on automata,
+e.g., [5].
+
+To get around the potential for performance issues related to converting
+PREs to DFAs, there are two current approaches. The first and most obvious
+one is caching, discussed immediately in the following section. After this,
+the idea of I<lazy sequentilization> - or delaying the conversion of a
+PRE until the last possible moment - is introduced with a proof of concept
+example that works I<now>.
+
+=head1 CACHING 
+
+The practicality of converting the PRE to a DFA suitable for generating
+valid execution orders is reached relatively quickly as more C<shuffle>s
+are added.  For this reason, C<init_plan> looks for a cache file. If
+available, it's loaded saving potentally long start up times.
+
+=head2 How Caching Works in C<Sub::Genius>
+
+Caching of the PRE is done after it has been I<compiled> into a DFA, which
+is called most directly via C<init_plan>. Unless the constructor has been
+created specifically turning it off via C<cachedir=>undef>, L<Storable>'s
+C<store> method is used to save it to the C<cachedir>. Internally, a C<md5>
+checksum is generated using L<Digest::MD5>'s C<md5_hex> method on the PRE
+after it's been I<preprocessed>. If the constructor is passed the flag
+to disable preprocessing, the checksum is generated in consideration of
+the PRE as specified using the C<preplan> parameter of C<new>.
+
+The lifecycle of caching, assuming default behavior is:
+
+=over 4
+
+=item 1. constructor used to create instance with C<preplan> specified
+
+=item 2. C<preplan>
+
+is I<preprocessed> to strip comments, blank spaces, and put square braces
+around all I<words>
+
+=item 3. a checksum
+
+is generated using the value of post-preprocessed C<preplan> field
+
+=item 4. calling C<init_plan>
+
+first looks for a cached file representing the DFA's checksum; if found
+it C<retrieve>s this file and this is the DFA moving forward
+
+=item 5. if no such cached DFA exists
+
+then internally the L<FLAT> enabled process to convert a PRE to a DFA is
+invoked; this is the step that has the potential for taking an inordinate
+amount of time
+
+=item 6. the DFA is saved
+
+in C<cachedir> with the file name that matches the value of C<checksum>.
+
+=back
+
+=head2 Role of Checksumming and PRE Normalization
+
+The current implementation of the checksumming of PREs is done by
+normalizing the provide PRE during the I<preprocess> step. This includes:
+stripping comments, adding square backets (C<[]>) around all words
+(C<\w>) including single characters, eliminating all new lines, and
+finally eliminating all spaces. This effectively creates a minimized PRE
+that retains all Regular Expression operators, delimits all symbols by a
+circumfix square brace pair, eliminates all spaces, and eliminates all
+new lines. With this approach, caching is effective for all PREs that
+minimize to the same exact form regardless of any spacing or comments
+that might be present.
+
+=head2 Final Notes on Caching
+
+Caching for C<compiled> things, in lieu of better performance for
+necessarily complext algorithms, seems an acceptible cheat. Well known
+examples of this included L<Inline> (e.g., the C<_Inline> default directory)
+and the caching of rendered template by L<Template> Toolkit.
+
+This could be couched as a I<benefit>, but the truth is that it would be
+better if caching DFAs was not necessary. In the case for very complex
+or I<highly> shuffled PREs, it is necessary to precompile - and maybe
+even on much more performant machines than the one the code using them
+will run on. It may just be the nature of taming this beast.
+
+This also suggests I<best practices> if this module, or the approach it
+purports, ever reaches some degree of interesting. It is reasonable to
+imagine the rendering of I<frozen> DFAs (the I<compiled> form of PREs
+used to generate valid execution plans) is like a compilation step, just
+like building XS modules necessarily requires the compiling of code during
+module installation. It could also be, that assuming C<store>'d files are
+platform independent, that a repository of these can be mainted somewhere
+like in a git repo for distribution. Indeed, there could be entire modules
+on CPAN that provide libraries to DFAs that ensure sequential consistency
+for a large variety of applications.
+
+Until this is proven in the wild, it's just speculation. For now, it's
+sufficient to state that caching is a necessary part of this approach
+and may be for some time. The best we can do is provide a convenient
+way to handle it, and it's taking a hint from modules like C<Inline>
+that we start off on the right footing.
+
+As a final note, caching I<can> be disabled in the constructure,
+
+    my $sq = Sub::Genius->new( preplan => $preplan, cachedir => undef );
+
+=head1 LAZY OR NESTED LINEARIZATION
+
+This concept bears more exploration, but the idea is basically to encapsulate
+additional calls to C<Sub::Genious> inside of subroutines contained in higher
+level PREs. This kind of thing is done often, a good example is L<Web::Scraper>'s
+concept of nested scrapers.
+
+For example, all of the words in the following C<$preplan> simply represent
+calls to subroutines, albeit constrained to the orderings implied by the PRE
+operators present: 
+
+    my $preplan = q{
+      init
+      ( subA
+          &
+          (
+            subB
+       
+            _DO_LAZY_SEQ_   #<~ this subroutine encapsulates another PRE
+      
+            subC
+          )
+          &
+        subD
+      )
+      fin
+    };
+     
+    my $sq = Sub::Genius->new(preplan => $preplan)->init_plan;
+     
+    my $final_scope = $sq->run_any;
+     
+    sub _DO_LAZY_SEQ_ {
+      my $scope = shift;
+      my $inner_preplan = q{
+        subA
+          &
+        subB
+          &
+        subC
+          & 
+        subD
+          &
+        subE #<~ new to this PRE!
+      };
+      return Sub::Genius->new(preplan => $inner_preplan)->run_any;
+    }
+     
+    # new sub required to support the lazily linearized PRE
+    sub subE {
+      my $scope = shift;
+      print qq{Sneaky sneak subE says, "Hi!"\n};
+      return $scope;
+    }
+     
+    # ... assume all other subs are defined, we define _DO_LAZY_SEQ_ with
+    # its own $preplan;
+
+The above idea does work and benefits from caching as well as the top
+level. Future enhancements may provide some builtin I<lazy> enablement
+routines. But for now, it suffices to demonstrate that this is a viable
+approach.
 
 =head1 DEBUGGING AND TOOLS
 
@@ -918,6 +1158,17 @@ This module installs a tool called L<stubby> into your local C<$PATH>. For
 the time being it is located in the C<./bin> directory of the distribution
 and on Github. It will help anyone interested in getting an idea of what
 programming using this model is like.
+
+See L<stubby> for more information, but it currently allows for both stub
+code generation to get one started on using this module; and the ability
+to pre-cache (or I<compile>) PREs into the DFA needed to generate valid
+execution plans. It's the conversion from a PRE to this DFA that the most
+potentially expensive aspect of this approach.
+
+See L<stubby> for more information, but it currently allows for both stub
+code generation to get one started on using this module; and the ability
+to pre-cache (or I<compile>) PREs into the DFA needed to generate valid
+execution plans.
 
 C<fash>
 
@@ -957,108 +1208,10 @@ L<Sub::Genius>.
 
 L<stubby> and L<fash>.
 
-=head1 PERFORMANCE LIMITATIONS
-
-L<FLAT> is very useful for fairly complex semantics, but the number of
-FA states grows extremely large as it moves from the non-deterministic
-realm to to the deterministic.
-
-What that means in most cases, is that the more non-deterministic the PRE
-(e.g., the more C<shuffles> or C<&>'s), the longer it will take for the
-final DFA to be created. It would not be hard to overwhelm a system's
-memory with a PRE like the one suggested above,
-
-    my $preplan = join(q{&},(a..z));
-
-This suggests all 26 letter combinations of all of the lower case letters
-of the alphabet (26! such combinations, as noted above) must be accounted
-for in the final minimized DFA, which is really just a large graph.
-
-The algorithms inplemented in L<FLAT> to convert from a PRE to a PFA
-(equivalent to a PetriNet) to a NFA to a DFA, and finally to a minimized
-DFA are the basic' ones discussed in any basic CS text book on automata,
-e.g., [5].
-
-=head1 CACHING 
-
-The practicality of converting the PRE to a DFA suitable for generating
-valid execution orders is reached relatively quickly as more C<shuffle>s
-are added.  For this reason, C<init_plan> looks for a cache file. If
-available, it's loaded saving potentally long start up times.
-
-=head2 How Caching Works in C<Sub::Genius>
-
-Caching of the PRE is done after it has been I<compiled> into a DFA, which
-is called most directly via C<init_plan>. Unless the constructor has been
-created specifically turning it off via C<cachedir=>undef>, L<Storable>'s
-C<store> method is used to save it to the C<cachedir>. Internally, a
-C<md5> checksum is generated using L<Digest::MD5>'s C<md5_hex> method on
-the PRE after it's been I<preprocessed>. If the constructor is passed the
-flag to disable preprocessing, the checksum is generated in consideration
-of the PRE as specified using the C<preplan> parameter of C<new>.
-
-The lifecycle of caching, assuming default behavior is:
-
-=over 4
-
-=item constructor used to create instance with C<preplan> specified
-
-=item C<preplan> is I<preprocessed> to strip comments, blank spaces, and
-put square braces around all I<words>
-
-=item a checksum is generated using the value of post-preprocessed C<preplan>
-field
-
-=item calling C<init_plan> first looks for a cached file representing the
-DFA's checksum; if found it C<retrieve>s this file and this is the DFA moving
-forward
-
-=item if no such cached DFA exists, then internally the L<FLAT> enabled process
-to convert a PRE to a DFA is invoked; this is the step that has the potential
-for taking an inordinate amount of time
-
-=item once the DFA is generated, it is saved in C<cachedir> with the file name
-that matches the value of C<checksum>.
-
-=back
-
-=head2 Final Notes on Caching
-
-Caching for C<compiled> things, in lieu of better performance for
-necessarily complext algorithms, seems an acceptible cheat. Well known
-examples of this included L<Inline> (e.g., the C<_Inline> default directory)
-and the caching of rendered template by L<Template> Toolkit.
-
-This could be couched as a I<benefit>, but the truth is that it would be
-better if caching DFAs was not necessary. In the case for very complex
-or I<highly> shuffled PREs, it is necessary to precompile - and maybe
-even on much more performant machines than the one the code using them
-will run on. It may just be the nature of taming this beast.
-
-This also suggests I<best practices> if this module, or the approach it
-purports, ever reaches some degree of interesting. It is reasonable to
-imagine the rendering of I<frozen> DFAs (the I<compiled> form of PREs
-used to generate valid execution plans) is like a compilation step, just
-like building XS modules necessarily requires the compiling of code during
-module installation. It could also be, that assuming C<store>'d files are
-platform independent, that a repository of these can be mainted somewhere
-like in a git repo for distribution. Indeed, there could be entire modules
-on CPAN that provide libraries to DFAs that ensure sequential consistency
-for a large variety of applications.
-
-Until this is proven in the wild, it's just speculation. For now, it's
-sufficient to state that caching is a necessary part of this approach
-and may be for some time. The best we can do is provide a convenient
-way to handle it, and it's taking a hint from modules like C<Inline>
-that we start off on the right footing.
-
-As a final note, caching I<can> be disabled in the constructure,
-
-    my $sq = Sub::Genius->new( preplan => $preplan, cachedir => undef );
-
 =head1 SEE ALSO
 
-L<Pipeworks>, L<Sub::Pipeline>, L<Process::Pipeline>, L<FLAT>, L<Graph::PetriNet>
+L<Pipeworks>, L<Sub::Pipeline>, L<Process::Pipeline>, L<FLAT>,
+L<Graph::PetriNet>
 
 =head2 Good Reads
 
