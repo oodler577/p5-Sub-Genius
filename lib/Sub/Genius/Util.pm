@@ -41,13 +41,25 @@ sub _as_all {
 sub subs2perl {
     my ( $self, %opts ) = @_;
 
-    my @subs       = ();
+    die qq{'preplan' and 'prefile' are mutually exclusive\n} if ( $opts{preplan} and $opts{prefile} );
+
+    if ( defined $opts{prefile} ) {
+        local $/ = undef;
+        open my $ph, q{<}, $opts{prefile} || die $!;
+        $opts{preplan} = <$ph>;
+        close $ph;
+    }
+
+    # PRE is parsed, but not converted to validate it
+    my $sq = $self->new(%opts);
+
+    my @subs       = split /[^\w]/, $opts{preplan};
     my @pre_tokens = ();
     my @perlsubpod = ();
 
     # make sure subs are not repeated
     my %uniq = ();
-    foreach my $sub ( @{ $opts{subs} } ) {
+    foreach my $sub ( @subs ) {
         ++$uniq{$sub};
     }
 
@@ -60,7 +72,9 @@ sub subs2perl {
     }
 
     my $perlsub    = $self->_dump_subs( \@subs );
-    my $perlpre    = join( qq{\n}, @pre_tokens );
+    my $perlpre    = $opts{preplan};
+    $perlpre =~ s/\n$//;
+    $perlpre =~ s/^/  /gm; 
     my $perlsubpod = join( qq{\n}, @perlsubpod );
     my $invokemeth = $invocation->{ $opts{q{with-run}} }->();
 
@@ -72,8 +86,6 @@ sub subs2perl {
  use Sub::Genius ();
 
  my \$preplan = q{
- # TODO - add concurrent semantics (e.g., '&', etc)
- # [note: this comment is ignored by Sub::Genius]
 $perlpre
  };
 
