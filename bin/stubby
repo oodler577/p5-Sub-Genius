@@ -65,7 +65,7 @@ sub usage_precache {
 }
 
 sub run_helf {
-    my $has_perldoc = system(qw/which perdoc/);
+    my $has_perldoc = system(qw/which perldoc/);
     if ( $has_perldoc > EXIT_SUCCESS ) {
         print qq{(fatal) 'perldoc' utility required, please install & resubmit your request...\n};
         return $has_perldoc;
