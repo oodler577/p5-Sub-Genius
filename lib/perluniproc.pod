@@ -1,0 +1,25 @@
+=head1 NAME
+
+perluniproc - Information regarding C<perl>'s I<uniprocess> execution model and
+the memory model it admits.
+
+=head1 SUMMARY
+
+=head1 WHAT IS A UNIPROCESS
+
+=head1 C<PERL>'s MEMORY MODEL
+
+=head1 CONCURRENT SEMANTICS AND SEQUENTIAL CONSISTENCY
+
+=head1 SEE ALSO
+
+L<Sub::Genius>
+
+=head1 COPYRIGHT AND LICENSE
+
+Same terms as perl itself.
+
+=head1 AUTHOR
+
+OODLER 577 E<lt>oodler@cpan.orgE<gt>
+
