@@ -8,7 +8,7 @@ use Digest::MD5 ();
 use Storable    ();
 use Cwd         ();
 
-our $VERSION = q{0.12};
+our $VERSION = q{0.13};
 
 # constructor
 sub new {
@@ -101,7 +101,7 @@ sub _balkanize {
     foreach my $line ( split /\n/, $self->{preplan} ) {
 
         # supports strings with namespace delim, '::'
-        $line =~ s/([a-zA-Z:_]+)/\[$1\]/g;
+        $line =~ s/([a-zA-Z:_\d]+)/\[$1\]/g;
         push @pre, $line;
     }
     $self->preplan( join qq{\n}, @pre );
@@ -201,7 +201,7 @@ sub convert_pregex_to_dfa {
     }
 
     if ( not $self->dfa or defined $opts{reset} ) {
-        $self->dfa( $self->pregex->as_pfa->as_nfa->as_dfa->trim_sinks );
+        $self->dfa( $self->pregex->as_pfa->as_nfa->as_dfa->as_min_dfa->trim_sinks );
 
         # save to cache
         if ( $self->do_cache ) {
