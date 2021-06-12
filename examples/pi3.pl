@@ -6,10 +6,11 @@ use feature 'state';
 
 use Sub::Genius;
 
-my $NUM_THREADS = 5;
+my $NUM_THREADS = 6;
 
 my $preplan = q{
-( step
+(
+  step
   &
   step
   &
