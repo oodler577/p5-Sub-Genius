@@ -20,13 +20,17 @@ my $subcommand = shift @ARGV;
 
 my $subcommands = {
     help     => \&run_helf,
+    export   => \&run_export,
     init     => \&run_init,
+    list     => \&run_list,
     precache => \&run_precache,
 };
 
 my $usages = {
     help     => \&usage_helf,
+    export   => \&usage_export,
     init     => \&usage_init,
+    list     => \&usage_list,
     precache => \&usage_precache,
 };
 
@@ -56,8 +60,16 @@ sub usage_helf {
     return qq{stubby help};
 }
 
+sub usage_export {
+    return qq{stubby export --as [dot] [-f path/to/preplan.preplan] | [-p|--preplan "p&r&e&plan"] };
+}
+
 sub usage_init {
     return qq{stubby init [-x|--run [once|any|all|nodeps] -p|--preplan "sub1 sub2 sub3 ..." > my-script.pl};
+}
+
+sub usage_list {
+    return qq{stubby list [-f path/to/preplan.preplan] | [-p|--preplan "p&r&e&plan"]}
 }
 
 sub usage_precache {
@@ -71,6 +83,22 @@ sub run_helf {
         return $has_perldoc;
     }
     return system( qw/perldoc/, $0 );
+}
+
+sub run_export {
+    my $argv = shift;
+    my %opts = ();
+    my $gol  = Getopt::Long::GetOptionsFromArray(
+        $argv,
+        \%opts,             # container for all processed options
+	q/a|as=s/,            # specify export kind (e.g., "dot" dumps PRE in graphviz "dot" format)
+        q/f|prefile=s/,     # specify file containing PRE
+        q/p|preplan=s/,     # define PRE (required if -f is not specified
+	q/s|stage=s/,       # default is "min-dfa" because that's what is used internally and available most easily
+	                    #  other options are: pfa, nfa, dfa.
+    );
+    my $sq = Sub::Genius::Util->export_as(as => $opts{a}, preplan  => $opts{p}, prefile  => $opts{f}, stage => $opts{s});
+    return EXIT_SUCCESS;
 }
 
 sub run_init {
@@ -96,6 +124,19 @@ sub run_init {
         # as a dependency in the final code
         print Sub::Genius::Util->plan2nodeps( preplan => $opts{p}, prefile => $opts{f}, cachedir => $opts{d} );
     }
+    return EXIT_SUCCESS;
+}
+
+sub run_list {
+    my $argv = shift;
+    my %opts = ();
+    my $gol  = Getopt::Long::GetOptionsFromArray(
+        $argv,
+        \%opts,             # container for all processed options
+        q/f|prefile=s/,     # specify file containing PRE
+        q/p|preplan=s/,     # define PRE (required if -f is not specified
+    );
+    my $sq = Sub::Genius::Util->list(preplan  => $opts{p}, prefile  => $opts{f});
     return EXIT_SUCCESS;
 }
 
@@ -181,13 +222,37 @@ of the PREs, basically by minifying them.
 General commandline tool for doing usefuly things while developing or
 distributing applications that use L<Sub::Genius>.
 
+C<export> - dumps the minimized DFA resulting from the C<PRE> in GraphViz's
+C<dot> format. Useful with programs such as C<xdot>, which is a viewer; in
+addition to the rendering programs provided by GraphViz, such as C<dot>, C<circo>,
+etc.
+
 C<init> -  generates boilerplate Perl to help start a script, module,
 or project that is using C<Sub::Genius>.
+
+C<list> - enumerates all I<valid> strings accepted by the PRE that is provided;
+this is useful for verifying all of the orderings in which the PRE describes the
+serialized execution plan.
 
 C<precache> - provides a compiler-I<like> tool for precaching PREs
 that L<Sub::Genius> is able to use natively for skipping the potentially
 expensive step of convering a PRE (I<preplan>) to a DFA (the thing L<FLAT>
 uses to generate valid (i.e., I<sequentially consistent>) execution plans.
+
+=head1 OPTIONS FOR SUBCOMMAND C<export>
+
+=over 4
+
+=item C<-f|--prefile> C<path/to/PRE.preplan>
+
+Specify the PRE from a file. Mutually exclusive with C<-p|--preplan>.
+
+=item C<-p|--preplan> C<PRE>
+
+An the actual PRE that is to be cached. Mutually exclusive with
+C<-f|--prefile>, which can be used to specify a PRE in a text file.
+
+=back
 
 =head1 OPTIONS FOR SUBCOMMAND C<init>
 
@@ -224,6 +289,21 @@ that must necessarily be I<sequentially consistent>.
 =item C<-f|--prefile>
 
 Specify the PRE from a file. Mutually exclusive with C<-p|--preplan>.
+
+=back
+
+=head1 OPTIONS FOR SUBCOMMAND C<list>
+
+=over 4
+
+=item C<-f|--prefile> C<path/to/PRE.preplan>
+
+Specify the PRE from a file. Mutually exclusive with C<-p|--preplan>.
+
+=item C<-p|--preplan> C<PRE>
+
+An the actual PRE that is to be cached. Mutually exclusive with
+C<-f|--prefile>, which can be used to specify a PRE in a text file.
 
 =back
 

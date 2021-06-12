@@ -38,6 +38,47 @@ sub _as_all {
 /
 }
 
+sub export_as {
+    my ( $self, %opts ) = @_;
+
+    die qq{'preplan' and 'prefile' are mutually exclusive\n} if ( $opts{preplan} and $opts{prefile} );
+
+    if ( defined $opts{prefile} ) {
+        local $/ = undef;
+        open my $ph, q{<}, $opts{prefile} || die $!;
+        $opts{preplan} = <$ph>;
+        close $ph;
+    }
+
+    my $sq = $self->new(%opts);
+    $sq->init_plan;
+    print $sq->dfa->as_graphviz; # this is a minimal DFA
+
+    return;
+}
+
+sub list {
+    my ( $self, %opts ) = @_;
+
+    die qq{'preplan' and 'prefile' are mutually exclusive\n} if ( $opts{preplan} and $opts{prefile} );
+
+    if ( defined $opts{prefile} ) {
+        local $/ = undef;
+        open my $ph, q{<}, $opts{prefile} || die $!;
+        $opts{preplan} = <$ph>;
+        close $ph;
+    }
+
+    my $sq = $self->new(%opts);
+    $sq->init_plan;
+
+    while (my $preplan = $sq->next) {
+      print qq{$preplan\n};
+    }
+
+    return;
+}
+
 sub subs2perl {
     my ( $self, %opts ) = @_;
 
