@@ -75,3 +75,6 @@ Changes for Sub::Genius
                the minimized DFA implied by the PRE into GraphViz's "dot" format
                for rendering using GVs traditional utilities (dot, circo, etc) and
                other "dot" format explorers like "xdot"
+
+0.13.01      2021-06-07 14:30:51-05:12 America/New_York
+             - cleaned up files in the cpan distro
