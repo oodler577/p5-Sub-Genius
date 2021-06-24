@@ -84,3 +84,8 @@ Changes for Sub::Genius
                which is ideal as an example for an unordered, "multithreaded"
                solution.
              - bumped vers to pi/10 in honor of this milestone
+
+0.314002     2021-06-18 14:30:52-03:14 America/New_York
+             - documentation-only change
+             - added a noteworthy addition to the POD, after finding Chapel's page
+               describing its memory consistency model - worth the read!
