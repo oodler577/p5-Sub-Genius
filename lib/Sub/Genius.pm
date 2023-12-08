@@ -10,7 +10,6 @@ use Cwd         ();
 
 our $VERSION = q{0.314005};
 
-# constructor
 sub new {
     my $pkg  = shift;
     my %self = @_;
@@ -238,7 +237,7 @@ sub plan_nein {
 }
 
 # wrapper that combines C<init_plan> and C<run_once> to present an idiom,
-#    my $final_scope = Sub::Genius->new($preplan)->run_any( scope => { ... });
+#    my $final_scope = Sub::Genius->new($plan)->run_any( scope => { ... });
 sub run_any {
     my ( $self, %opts ) = @_;
     $self->init_plan;
@@ -270,11 +269,11 @@ sub run_once {
     $self->next if not $self->plan;
 
     # check plan is set, just to be sure
-    if ( my $preplan = $self->plan ) {
+    if ( my $plan = $self->plan ) {
         if ( $opts{verbose} ) {
-            print qq{plan: "$preplan" <<<\n\nExecute:\n\n};
+            print qq{plan: "$plan" <<<\n\nExecute:\n\n};
         }
-        my @seq = split( / /, $preplan );
+        my @seq = split( / /, $plan );
 
         # main run loop - run once
         local $@;
@@ -295,8 +294,8 @@ sub run_once {
 #   force a reset, pass in, C<reset => 1>.
 #
 # To us:
-#   my $sq = Sub::Genius=->new(preplan => q{a&b*c}, => 'allow-infinite' => 1);
-#   $sq->init_plan;
+#   my $sg = Sub::Genius=->new(preplan => q{a&b*c}, => 'allow-infinite' => 1);
+#   $sg->init_plan;
 #
 #
 sub inext {
@@ -315,18 +314,13 @@ sub inext {
 1;
 
 __END__
-=head1 THIS MODULE IS I<EXPERIMENTAL>
-
-Until further noted, this module subject to extreme fluxuations in
-interfaces and implied approaches. The hardest part about this will be
-managing all the cool and bright ideas stemming from it.
-
 =head1 NAME
 
-Sub::Genius - Manage concurrent C<Perl> semantics in the
+Sub::Genius - Allows one to manage concurrent C<Perl> semantics in the
 uniprocess execution model of C<perl>.
 
-=head2 In Other Words
+It's basically a thinly veiled wrapper around a bunch of useful tools
+found on the internet, like L<FLAT>.  It even prive
 
 L<Sub::Genius> generates a correctly ordered, sequential series of
 subroutine calls from a declarative I<plan> that may be parallel or
@@ -334,44 +328,56 @@ concurrent in nature.  This allows a concurrency plan to be I<serialized>
 or I<linearized> properly for execution in a uniprocess (or single CPU)
 environment.
 
-Sub::Genius introduces all the joys and pains of multi-threaded, shared
-memory programming to the uniprocess environment that is C<perl>.
-
-After all, if we're going to I<fake the funk out of coroutines> [4],
-let's do it correctly. C<:)>
-
-[6], an exposition of L<sequential consistency> in the I<Chapel> programming
-language also provides quite an interesting read. Chapel itself is
-interested, as are the other I<high productivity> high performance
+[6] is an exposition of L<sequential consistency> in the I<Chapel>
+programming language, and also provides quite an interesting read. Chapel
+itself is interested, as are the other I<high productivity> high performance
 computing languages that came out during the first decade of this century
 (X10, Fortress, etc).
 
 =head1 SYNOPSIS
 
+    use strict;
+    use warnings;
+    use Sub::Genius;
+
+    my $plan = q{( A B ) & ( C D ) (Z)};
+    my $sg = Sub::Genius->new(plan => $plan);
+    $sg->init_plan;
+    $sg->run_once;
+    
+    sub A { print qq{A}    }
+    sub B { print qq{B}    }
+    sub C { print qq{C}    }
+    sub D { print qq{D}    }
+    sub Z { print qq{\n\n} }
+
+=head1 DESCRIPTION 
+
+Annotated version of the L<SYNOPSIS> follows:
+
     # D E F I N E  T H E  P L A N
-    my $preplan = q{( A B )  &   ( C D )      (Z)};
+    my $plan = q{( A B )  &   ( C D )      (Z)};
     #                 \ /          \ /         |
     #>>>>>>>>>>>     (L1) <shuff>  (L2) <cat>  L3
      
     # C O N V E R T  T H E  P L A N  T O  D F A 
-    my $sq = Sub::Genius->new(preplan => $preplan);
+    my $sg = Sub::Genius->new(preplan => $plan);
 
     # I N I T  T H E  P L A N
-    $sq->init_plan;
+    $sg->init_plan;
      
     # R U N  T H E  P L A N
-    $sq->run_once;
-    print qq{\n};
-    
+    $sg->run_once;
+     
     # NOTE: sub declaration order has no bearing on anything
      
-    sub A { print qq{A}  } #-\
-    sub B { print qq{B}  } #--- Language 1
+    sub A { print qq{A}    } #-\
+    sub B { print qq{B}    } #--- Language 1
      
-    sub C { print qq{C}  } #-\
-    sub D { print qq{D}  } #--- Language 2
+    sub C { print qq{C}    } #-\
+    sub D { print qq{D}    } #--- Language 2
      
-    sub Z { print qq{\n} } #--- Language 3
+    sub Z { print qq{\n\n} } #--- Language 3
 
 The following expecity execution of the defined subroutines are all
 valid according to the PRE description above:
@@ -417,14 +423,14 @@ is I<always> called last
 C<FLAT> allows single character symbols to be expressed with out any
 decorations;
 
-    my $preplan = q{ s ( A (a b) C & ( D E F ) ) f };  # define plan
-    my $sq = Sub::Genius->new(preplan => $preplan);    # convert plan
+    my $plan = q{ s ( A (a b) C & ( D E F ) ) f };  # define plan
+    my $sg = Sub::Genius->new(preplan => $plan);    # convert plan
 
 The I<concatentation> of single symbols is implied, and spaces between
 symbols doesn't even matter. The following is equivalent to the PRE above,
 
-    my $preplan = q{s(A(ab)C&(DEF))f};                 # define plan
-    my $sq = Sub::Genius->new(preplan => $preplan);    # convert plan
+    my $plan = q{s(A(ab)C&(DEF))f};                 # define plan
+    my $sg = Sub::Genius->new(preplan => $plan);    # convert plan
 
 It's important to note immediately after the above example, that the PRE
 may contain C<symbols> that are made up of more than one character.
@@ -433,7 +439,7 @@ But this is a mess, so we can use longer subroutine names as symbols and
 break it up in a more readable way:
 
     # define plan
-    my $preplan = q{
+    my $plan = q{
       start
         (
           sub_A
@@ -452,7 +458,7 @@ break it up in a more readable way:
       fin
     };
     # convert plan
-    my $sq = Sub::Genius->new(preplan => $preplan);
+    my $sg = Sub::Genius->new(preplan => $plan);
 
 This is much nicer and starting to look like a more natural expression
 of concurrent semantics, and allows the expression of subroutines as
@@ -467,7 +473,7 @@ support of inline comments and empty lines.
 For example,
 
     # define plan
-    my $preplan = q{
+    my $plan = q{
       start         # Language 1 (L1) always runs first
         (
           sub_A     # Language 2 (L2) 
@@ -486,9 +492,7 @@ For example,
       fin           # Language 4 (L4) always runs last
     };
     # convert plan
-    my $sq = Sub::Genius->new(preplan => $preplan);
-
-=head1 DESCRIPTION 
+    my $sg = Sub::Genius->new(preplan => $plan);
 
 L<Sub::Genius> generates a correctly ordered, sequential series of
 subroutine calls from a declarative I<plan> that may be parallel or
@@ -506,12 +510,12 @@ ordering constraints among subroutine calls.
 Totally ordered means, I<subroutine B must follow
 subroutine A>.
 
-   my $preplan = q{ A   B };
+   my $plan = q{ A   B };
 
 Partially ordered means, I<subroutine A may lead or lag subroutine B, both
 must be executed>.
 
-   my $preplan = q{ A & B };
+   my $plan = q{ A & B };
 
 Using this concept, C<Sub::Genius> can generate a valid sequential ordering
 of subroutine calls from a declarative I<plan> that may directly express
@@ -613,8 +617,8 @@ C<abcd> or even C<[a][b][c][d]>.
     
 =item examples,
 
-      my $preplan = q{  a        b        c   };       # single char symbol
-      my $preplan = q{symbol1 symbol2 symbol3 };       # multi-char symbol
+      my $plan = q{  a        b        c   };       # single char symbol
+      my $plan = q{symbol1 symbol2 symbol3 };       # multi-char symbol
 
 =item C<|> - I<union>: C<L1 | L2>
 
@@ -626,8 +630,8 @@ and all strings from I<L2>.
 
 =item examples,
 
-      my $preplan = q{  a     |    b    |    c   };    # single char symbol
-      my $preplan = q{symbol1 | symbol2 | symbol3};    # multi-car symbol
+      my $plan = q{  a     |    b    |    c   };    # single char symbol
+      my $plan = q{symbol1 | symbol2 | symbol3};    # multi-car symbol
 
 =item C<&> - I<shuffle>: C<L1 & L2>
 
@@ -641,8 +645,8 @@ that leads to guaranteeing I<sequential consistency>.
 
 =item B<E.g.>,
 
-      my $preplan = q{   a    &    b    &    c   };    # single char symbol
-      my $preplan = q{symbol1 & symbol2 & symbol3};    # multi-car symbol
+      my $plan = q{   a    &    b    &    c   };    # single char symbol
+      my $plan = q{symbol1 & symbol2 & symbol3};    # multi-car symbol
 
 =item C<*> - I<Kleene Star>: C<L1*>
 
@@ -657,8 +661,8 @@ the merely I<sub-genius> module author(s) how to leverage this operator.
 
 =item B<E.g.>,
 
-      my $preplan = q{    a     &     b*     &   c};  # single char symbol
-      my $preplan = q{symbol1 & symbol2* & symbol3};  # multi-car symbol
+      my $plan = q{    a     &     b*     &   c};  # single char symbol
+      my $plan = q{symbol1 & symbol2* & symbol3};  # multi-car symbol
 
 B<Note>: the above PRE is not supported in L<Sub::Genius>, but may be in
 the future.  One may tell C<Sub::Genius> to not C<die> when an infinite
@@ -668,10 +672,10 @@ currently the behavior exhibited by this module is considered I<undefined>:
 =item B<E.g.>,
 
       # single char symbol
-      my $preplan = q{    a     &     b*     &   c      };
+      my $plan = q{    a     &     b*     &   c      };
       
       # without 'allow-infinite'=>1, C<new> will fail here
-      my $sq = Sub::Genius->new(preplan => $preplan, 'allow-infinite' => 1);
+      my $sg = Sub::Genius->new(preplan => $plan, 'allow-infinite' => 1);
 
 =back
 
@@ -683,7 +687,7 @@ Parenthesis are supported as a way to group constituent I<languages>,
 provide nexting, and exlicitly express precendence. Many examples in this
 document use parenthesis liberally for clarity.
 
-      my $preplan = q{ s ( A (a b) C & ( D E F ) ) f };
+      my $plan = q{ s ( A (a b) C & ( D E F ) ) f };
 
 For example, the following I<preplan> takes advantage of parentheses
 effectively to isolate six (6) distinct Regular Languages (C<init>, L1-4,
@@ -693,7 +697,7 @@ of the making a I<plan> more readable using comments (not to suggest an
 I<idiom> :)).
 
     # define plan
-    my $preplan = q{
+    my $plan = q{
       ##########################################################
       # Plan Summary:                                          #
       #  'init' is called first, then 4 out of 8 subroutines   #
@@ -723,12 +727,12 @@ way to use this module.
 
 B<Required parameter:>
 
-C<< preplan => $preplan >>
+C<< preplan => $plan >>
 
 Constructor, requires a single scalar string argument that is a valid
 PRE accepted by L<FLAT>.
 
-    my $preplan = q{
+    my $plan = q{
       start
         (
           subA
@@ -742,7 +746,7 @@ PRE accepted by L<FLAT>.
       finish
     };
 
-    my $sq = Sub::Genius->new(preplan => $preplan);
+    my $sg = Sub::Genius->new(preplan => $plan);
 
 B<Optional pramameter:>
 
@@ -800,7 +804,7 @@ DFA. It's this DFA that is then used to generate the (currently) finite
 set of strings, or I<plans> that are acceptible for the algorithm or
 steps being implemented.
 
-    my $preplan = q{
+    my $plan = q{
       start
         (
           subA
@@ -814,9 +818,9 @@ steps being implemented.
       finish
     };
     
-    my $sq = Sub::Genius->new(preplan => $preplan);
+    my $sg = Sub::Genius->new(preplan => $plan);
     
-    $sq->init_plan;
+    $sg->init_plan;
 
 B<Note:> I<Caching>
 
@@ -850,7 +854,7 @@ a data flow pipeline. Useful and consistent only in the context of a single
 plan execution. If not provided, C<scope> is initialized as an empty anonymous
 hash reference:
 
-    my $final_scope = $sq->run_once( scope   => {}, verbose => undef, );
+    my $final_scope = $sg->run_once( scope   => {}, verbose => undef, );
 
 =item verbose => 1|0
 
@@ -862,10 +866,10 @@ information.
 Runs the execution plan once, returns whatever the last subroutine executed
 returns:
 
-    my $preplan = join(q{&},(a..z));
-    my $sq  = Sub::Genius->new(preplan => $preplan);
-    $preplan   = $sq->init_plan;
-    my $final_scope = $sq->run_once;
+    my $plan = join(q{&},(a..z));
+    my $sg  = Sub::Genius->new(preplan => $plan);
+    $plan   = $sg->init_plan;
+    my $final_scope = $sg->run_once;
 
 =item C<next>
 
@@ -876,9 +880,9 @@ C<next> is called once again.
 
 An example of iterating over all valid strings in a loop follows:
 
-    while (my $preplan = $sq->next) {
-      print qq{Plan: $preplan\n};
-      $sq->run_once;
+    while (my $plan = $sg->next) {
+      print qq{Plan: $plan\n};
+      $sg->run_once;
     }
 
 Once the interator has generated I<all> valid strings, the loop above
@@ -891,10 +895,10 @@ with multiple returned final scopes is not part of this module, but can
 be captured during each iteration for future processessing:
 
     my @all_final_scopes = ();
-    while (my $preplan = $sq->next_plan()) {
-      print qq{Plan: $preplan\n};
-      my $final_scope = $sq->run_once;
-      push @all_final_scopes, { $preplan => $final_scope };
+    while (my $plan = $sg->next_plan()) {
+      print qq{Plan: $plan\n};
+      my $final_scope = $sg->run_once;
+      push @all_final_scopes, { $plan => $final_scope };
     }
     # now do something with all the final scopes collected
     # by @all_final_scopes
@@ -927,14 +931,14 @@ may be long, but it's finite.
 As an example, the following admits a large number of orderings in a realtively
 compact DFA, in fact there are 26! (factorial) such valid orderings:
 
-    my $preplan = join(q{&},(a..z));
-    my $final_scope = Sub::Genius->new(preplan => $preplan)->run_once;
+    my $plan = join(q{&},(a..z));
+    my $final_scope = Sub::Genius->new(preplan => $plan)->run_once;
 
 Thus, the following will take long time to complete; but it will complete:
 
     my $ans; # global to all subroutines executed
-    while ($my $preplan = $sq->next_plan()) {
-      $sq->run_once;
+    while ($my $plan = $sg->next_plan()) {
+      $sg->run_once;
     }
     print qq{ans: $ans\n};
 
@@ -951,7 +955,7 @@ excercise for the reader.
 For convenience, this wraps up the steps of C<plan>, C<init_plan>, C<next>,
 and C<run_once>. It presents a simple one line interfaces:
 
-    my $preplan = q{
+    my $plan = q{
       start
         (
           subA
@@ -965,7 +969,7 @@ and C<run_once>. It presents a simple one line interfaces:
       finish
     };
     
-    Sub::Genius->new(preplan => $preplan)->run_any();
+    Sub::Genius->new(preplan => $plan)->run_any();
 
 =item C<plan_nein>
 
@@ -989,7 +993,7 @@ What that means in most cases, is that the more non-deterministic the PRE
 final DFA to be created. It would not be hard to overwhelm a system's
 memory with a PRE like the one suggested above,
 
-    my $preplan = join(q{&},(a..z));
+    my $plan = join(q{&},(a..z));
 
 This suggests all 26 letter combinations of all of the lower case letters
 of the alphabet (26! such combinations, as noted above) must be accounted
@@ -1102,7 +1106,7 @@ that we start off on the right footing.
 
 As a final note, caching I<can> be disabled in the constructure,
 
-    my $sq = Sub::Genius->new( preplan => $preplan, cachedir => undef );
+    my $sg = Sub::Genius->new( preplan => $plan, cachedir => undef );
 
 =head1 LAZY OR NESTED LINEARIZATION
 
@@ -1111,11 +1115,11 @@ additional calls to C<Sub::Genious> inside of subroutines contained in higher
 level PREs. This kind of thing is done often, a good example is L<Web::Scraper>'s
 concept of nested scrapers.
 
-For example, all of the words in the following C<$preplan> simply represent
+For example, all of the words in the following C<$plan> simply represent
 calls to subroutines, albeit constrained to the orderings implied by the PRE
 operators present: 
 
-    my $preplan = q{
+    my $plan = q{
       init
       ( subA
           &
@@ -1132,9 +1136,9 @@ operators present:
       fin
     };
      
-    my $sq = Sub::Genius->new(preplan => $preplan)->init_plan;
+    my $sg = Sub::Genius->new(preplan => $plan)->init_plan;
      
-    my $final_scope = $sq->run_any;
+    my $final_scope = $sg->run_any;
      
     sub _DO_LAZY_SEQ_ {
       my $scope = shift;
@@ -1160,7 +1164,7 @@ operators present:
     }
      
     # ... assume all other subs are defined, we define _DO_LAZY_SEQ_ with
-    # its own $preplan;
+    # its own $plan;
 
 The above idea does work and benefits from caching as well as the top
 level. Future enhancements may provide some builtin I<lazy> enablement
